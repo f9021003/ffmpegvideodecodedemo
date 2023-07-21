@@ -58,6 +58,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
 
     //1. 打开媒体文件
     int reuslt = avformat_open_input(&avFormatContext, url, NULL, NULL);
+//    int reuslt = avformat_open_input(&avFormatContext, "rtsp://admin:Admin123%21@192.168.4.114:554/stream2", NULL, NULL);
     if (reuslt != 0) {
         LOGE("open input error url=%s, result=%d", url, reuslt);
         return -1;
@@ -88,19 +89,35 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     //4. 根据视频流信息的codec_id找到对应的解码器
     AVCodec *pCodec = avcodec_find_decoder(pCodecParameters->codec_id);
 
+    char* mediacodec_type_str = "";
+    if(pCodecParameters->codec_id == AV_CODEC_ID_H264){
+        mediacodec_type_str = "h264_mediacodec";
+    }
+    else if(pCodecParameters->codec_id == AV_CODEC_ID_HEVC){
+        mediacodec_type_str = "hevc_mediacodec";
+    }
+    if(mediacodec_type_str != "") {
+        pCodec = avcodec_find_decoder_by_name(mediacodec_type_str);
+    }
+
+
     if (pCodec == NULL) {
         LOGE("Couldn`t find Codec");
         return -1;
     }
 
     AVCodecContext *pCodecContext = avFormatContext->streams[videoIndex]->codec;
-
+    pCodecContext->thread_count = 8;//就这个是关键。
     //5.使用给定的AVCodec初始化AVCodecContext
     int openResult = avcodec_open2(pCodecContext, pCodec, NULL);
     if (openResult < 0) {
         LOGE("avcodec open2 result %d", openResult);
         return -1;
     }
+
+    LOGE("mediacodec_avcodec_open2 ret=%d\n" ,openResult);
+    LOGE("mediacodec_width*height = %d,%d\n" ,pCodecContext->width,pCodecContext->height);
+    LOGE("mediacodec_pix_fmt2 = %d\n" ,pCodecContext->pix_fmt);
 
     const char *outPathStr = env->GetStringUTFChars(outPath, NULL);
 
@@ -137,66 +154,123 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
                                                         SWS_BICUBIC, NULL, NULL, NULL);
 
 
-    int readPackCount = -1;
+    int readPackCount = 0;
+    int totalCounter = 0;
     int frame_cnt = 0;
     clock_t startTime = clock();
 
     //7. 开始一帧一帧读取
-    while ((readPackCount = av_read_frame(avFormatContext, packet) >= 0)) {
-        LOGI(" read fame count is %d, pts=%ld, dts=%ld", readPackCount, packet->pts, packet->dts);
+    /*while ((readPackCount = av_read_frame(avFormatContext, packet) >= 0)) {
+
 
         if (packet->stream_index == videoIndex) {
+            totalCounter++;
+            LOGI("(%d) read fame count is %d, pts=%ld, dts=%ld", totalCounter, readPackCount, packet->pts, packet->dts);
             //8. send AVPacket
             int sendPacket = avcodec_send_packet(pCodecContext, packet);
             //return 0 on success, otherwise negative error code:
             if (sendPacket != 0) {
                 LOGE("avodec send packet error %d", sendPacket);
-                continue;
+                //continue;
             }
             //9. receive frame
             // 0:  success, a frame was returned
-            int receiveFrame = avcodec_receive_frame(pCodecContext, pFrame);
+            int counter = 0;
 
-            if (receiveFrame != 0) {
-                //如果接收到的fame不等于0，忽略这次receiver否则会出现绿屏帧
-                LOGE("avcodec_receive_frame error %d", receiveFrame);
-                continue;
+            while(true) {
+                //usleep(100);
+                int receiveFrame = avcodec_receive_frame(pCodecContext, pFrame);
+
+                if (receiveFrame != 0) {
+                    //如果接收到的fame不等于0，忽略这次receiver否则会出现绿屏帧
+                    LOGE("avcodec_receive_frame error %d", receiveFrame);
+                    break;
+                }
+                counter++;
+                LOGE("avcodec_receive_frame success(%d). counter=%d", frame_cnt, counter);
+
+
+                //10. 格式转换
+                *//*sws_scale(img_convert_ctx, (const uint8_t *const *) pFrame->data, pFrame->linesize,
+                          0, pCodecContext->height,
+                          pFrameYUV->data, pFrameYUV->linesize);
+
+                //11. 分别写入YUV数据
+                int y_size = pCodecParameters->width * pCodecParameters->height;
+                //YUV420p
+                fwrite(pFrameYUV->data[0], 1, y_size, pYUVFile);//Y
+                fwrite(pFrameYUV->data[1], 1, y_size / 4, pYUVFile);//U
+                fwrite(pFrameYUV->data[2], 1, y_size / 4, pYUVFile);//V
+
+                //输出I、P、B帧信息
+                char pictypeStr[10] = {0};
+                switch (pFrame->pict_type) {
+                    case AV_PICTURE_TYPE_I: {
+                        sprintf(pictypeStr, "I");
+                        break;
+                    }
+                    case AV_PICTURE_TYPE_P: {
+                        sprintf(pictypeStr, "P");
+                        break;
+                    }
+                    case AV_PICTURE_TYPE_B: {
+                        sprintf(pictypeStr, "B");
+                        break;
+                    }
+                }
+                LOGI("Frame index %5d. Tpye %s", frame_cnt, pictypeStr);
+                 *//*
+                frame_cnt++;
+
             }
-            //10. 格式转换
-            sws_scale(img_convert_ctx, (const uint8_t *const *) pFrame->data, pFrame->linesize,
-                      0, pCodecContext->height,
-                      pFrameYUV->data, pFrameYUV->linesize);
-
-            //11. 分别写入YUV数据
-            int y_size = pCodecParameters->width * pCodecParameters->height;
-            //YUV420p
-            fwrite(pFrameYUV->data[0], 1, y_size, pYUVFile);//Y
-            fwrite(pFrameYUV->data[1], 1, y_size / 4, pYUVFile);//U
-            fwrite(pFrameYUV->data[2], 1, y_size / 4, pYUVFile);//V
-
-            //输出I、P、B帧信息
-            char pictypeStr[10] = {0};
-            switch (pFrame->pict_type) {
-                case AV_PICTURE_TYPE_I: {
-                    sprintf(pictypeStr, "I");
-                    break;
-                }
-                case AV_PICTURE_TYPE_P: {
-                    sprintf(pictypeStr, "P");
-                    break;
-                }
-                case AV_PICTURE_TYPE_B: {
-                    sprintf(pictypeStr, "B");
-                    break;
-                }
-            }
-            LOGI("Frame index %5d. Tpye %s", frame_cnt, pictypeStr);
-            frame_cnt++;
-            if (frame_cnt > 20) break;
         }
         //释放packet
         av_packet_unref(packet);
+    }*/
+     int ret = 0 ;
+    int decodeSuccessCounter = 0;
+    int decodeFailCounter = 0;
+    while (true) {
+        totalCounter++;
+        ret = avcodec_receive_frame(pCodecContext, pFrame);
+        LOGE("avcodec_receive_frame ret=%d. ,%d", ret, totalCounter);
+        if (ret == 0) {
+            decodeSuccessCounter++;
+
+            frame_cnt++;
+            // process with decode_frame
+            LOGE("avcodec_receive_frame success(%d). decodeSuccess=%d,decodeFail = %d ", frame_cnt, decodeSuccessCounter, decodeFailCounter);
+            av_frame_unref(pFrame);
+            decodeFailCounter = 0;
+            continue;
+        } else if (ret == AVERROR(EAGAIN)) {
+            decodeFailCounter++;
+            decodeSuccessCounter = 0;
+            ret = av_read_frame(avFormatContext, packet);
+
+            LOGI("(%d) read fame count is %d, pts=%ld, dts=%ld", totalCounter, readPackCount, packet->pts, packet->dts);
+
+            if (ret == AVERROR_EOF) {
+                LOGE("====AVERROR_EOF=====");
+                break;
+            }
+            readPackCount++;
+
+            if (packet->stream_index == videoIndex) {
+                ret = avcodec_send_packet(pCodecContext, packet);
+                if (ret < 0) {
+                    LOGE("Error submitting a packet for decoding (%s)", av_err2str(ret));
+                    av_packet_unref(packet);
+
+                    continue;
+                }
+            }
+            av_packet_unref(packet);
+
+        }
     }
+
+
 
     LOGI("frame count is %d", frame_cnt);
     clock_t endTime = clock();

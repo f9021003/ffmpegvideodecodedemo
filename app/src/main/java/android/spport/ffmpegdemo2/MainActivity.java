@@ -36,7 +36,8 @@ public class MainActivity extends AppCompatActivity {
         File externalFilesDir = getExternalFilesDir(null);
         Log.i("MainActivity", "externalFilesDir: "+externalFilesDir);
 
-        demo.decodeVideo(externalFilesDir+"/Big_Buck_Bunny_1080_10s_1MB_h264.mp4", externalFilesDir+"/output7.yuv");
+        //demo.decodeVideo(externalFilesDir+"/Big_Buck_Bunny_1080_10s_1MB_h264.mp4", externalFilesDir+"/output7.yuv");
+        demo.decodeVideo("rtsp://admin:Admin123%21@192.168.4.114:554/stream2", externalFilesDir+"/output7.yuv");
 //        demo.decodeVideo2(folderurl+"/input.mp4", externalFilesDir+"/output8.yuv");
         //demo.decodeAudio(folderurl+"/input.mp4", externalFilesDir+"/audio.pcm");
 
