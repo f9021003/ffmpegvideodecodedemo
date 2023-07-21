@@ -4,23 +4,43 @@
 
 
 extern "C" {
-#include "include/libavcodec/avcodec.h"
-#include "include/libavformat/avformat.h"
+//#include "include/libavcodec/avcodec.h"
+//#include "include/libavformat/avformat.h"
+#include "libavcodec/avcodec.h"
+#include "libavformat/avformat.h"
 #include "include/log.h"
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
 #include <libswresample/swresample.h>
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
+#include "libavcodec/jni.h"
 }
 
 jint playPcmBySL(JNIEnv *env,  jstring pcm_path);
+JavaVM *g_jvm; // global for JVM init Info
+
+jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+
+    LOGD("<Tony> JNI_OnLoad");
+    g_jvm = vm;
+
+    return JNI_VERSION_1_4;
+}
+
+
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_android_spport_mylibrary2_Demo_stringFromJNI(
         JNIEnv *env,
         jobject /* this */) {
     std::string hello = "Hello from C++";
+
+    if(av_jni_set_java_vm(g_jvm,NULL)!=0){
+        LOGD("<Tony> av_jni_set_java_vm fail");
+    }
+
+
     const char *string = av_version_info();
     return env->NewStringUTF(string);
 }
@@ -123,7 +143,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
 
     //7. 开始一帧一帧读取
     while ((readPackCount = av_read_frame(avFormatContext, packet) >= 0)) {
-        LOGI(" read fame count is %d", readPackCount);
+        LOGI(" read fame count is %d, pts=%ld, dts=%ld", readPackCount, packet->pts, packet->dts);
 
         if (packet->stream_index == videoIndex) {
             //8. send AVPacket
@@ -172,6 +192,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
             }
             LOGI("Frame index %5d. Tpye %s", frame_cnt, pictypeStr);
             frame_cnt++;
+            if (frame_cnt > 20) break;
         }
         //释放packet
         av_packet_unref(packet);
