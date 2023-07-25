@@ -30,10 +30,10 @@ public class Demo {
 
 
     //c层回调上来的方法
-    private int onProgressCallBack(long total,  byte[] imageYUVData,  int width, int height) {
+    private int onProgressCallBack(long total,  byte[] imageYUVData,byte[] imageYData,byte[] imageUData,byte[] imageVData, byte[] imageUVData, int width, int height, int pixFormat) {
         //自行执行回调后的操作
 //        Log.d("Demo", "total:"+total +"(" + width +"*"+ height + ") ,imageData=" + imageYData.length );
-        callBackListener.imageCallBack_jni(total,   imageYUVData, width,  height);
+        callBackListener.imageCallBack_jni( total,   imageYUVData, imageYData, imageUData, imageVData,  imageUVData,  width,  height,  pixFormat);
         return 1;
     }
 
@@ -43,6 +43,6 @@ public class Demo {
     }
     public interface CallBackListener {
         //取得jni端 用來存callback的imagedata usage
-        void imageCallBack_jni(long total,  byte[] imageYData, int width, int height);
+        void imageCallBack_jni(long total,  byte[] imageYUVData,byte[] imageYData,byte[] imageUData,byte[] imageVData, byte[] imageUVData, int width, int height, int pixFormat);
     }
 }

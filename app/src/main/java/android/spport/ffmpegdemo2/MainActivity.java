@@ -10,6 +10,8 @@ import android.graphics.YuvImage;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.spport.ffmpegdemo2.bean.DeviceVideoInfoYUVDataBean;
+import android.spport.ffmpegdemo2.render.GLView;
 import android.spport.mylibrary2.AudioTrackStaticModeHelper;
 import android.spport.mylibrary2.AudioTrackStreamHelper;
 import android.spport.mylibrary2.Demo;
@@ -31,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String  rtspUrl = "rtsp://admin:qqq@192.168.3.72:8554/CH001.sdp";
     private String  rtspUrl2 = "rtsp://admin:Admin123%21@192.168.4.114:554/stream2";
-
+    private GLView glView;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -40,12 +42,14 @@ public class MainActivity extends AppCompatActivity {
         // Example of a call to a native method
         TextView tv = findViewById(R.id.sample_text);
         ImageView imageView = findViewById(R.id.imageView);
+        glView = findViewById(R.id.glView);
+
         checkPermission();
 
         demo = new Demo();
         demo.setCallBackListener(new Demo.CallBackListener() {
             @Override
-            public void imageCallBack_jni(long total, byte[] imageYUVData,  int width, int height) {
+            public void imageCallBack_jni(long total,  byte[] imageYUVData,byte[] imageYData,byte[] imageUData,byte[] imageVData, byte[] imageUVData, int width, int height, int pixFormat) {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -55,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
 //                        System.arraycopy(imageUData, 0, yuvData, imageYData.length, imageUData.length);
 //                        System.arraycopy(imageVData, 0, yuvData, imageYData.length + imageUData.length, imageVData.length);
 
+                        //render with bitmap
                         ByteArrayOutputStream out = new ByteArrayOutputStream();
                         YuvImage yuvImage = new YuvImage(imageYUVData, ImageFormat.NV21, width, height, null);
                         yuvImage.compressToJpeg(new Rect(0, 0, width, height), 50, out);
@@ -62,6 +67,29 @@ public class MainActivity extends AppCompatActivity {
                         Bitmap image = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
                         imageView.setImageBitmap(image);
 
+
+                        // render with openGL
+                        DeviceVideoInfoYUVDataBean data = new DeviceVideoInfoYUVDataBean();
+                        data.setGridView(0);
+                        data.setYuvImageFormatEnum(DeviceVideoInfoYUVDataBean.YUV_IMAGE_FORMAT.getEnumFromFFMpegPixFormat(pixFormat));
+                        data.setWidth_y(width);
+                        data.setHeight_y(height);
+                        data.setWidth_uv(width/2);
+                        data.setHeight_uv(height/2);
+                        data.setData_y(imageYData);
+                        if (data.getYuvImageFormatEnum().equals(DeviceVideoInfoYUVDataBean.YUV_IMAGE_FORMAT.YUV420)) {
+                            data.setData_u(imageUData);
+                            data.setData_v(imageVData);
+                        } else if(data.getYuvImageFormatEnum().equals(DeviceVideoInfoYUVDataBean.YUV_IMAGE_FORMAT.NV12)) {
+                            data.setData_uv(imageUVData);
+                        } else {
+
+                        }
+
+
+
+
+                        glView.mRenderer.setData(data);
                         Log.d("MainActivity", "time_ =" +  (System.currentTimeMillis() - startTime)+  ", total:"+total +"(" + width +"*"+ height + ") ,imageData=" + imageYUVData.length );
                     }
                 });
@@ -128,6 +156,18 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Log.d("MainActivity", "onCreate: 无权限 ");
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        glView.onResume();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        glView.onPause();
     }
 
     @Override

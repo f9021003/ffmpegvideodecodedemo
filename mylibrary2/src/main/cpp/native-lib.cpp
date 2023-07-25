@@ -34,10 +34,18 @@ struct thread_para {
     uint8_t*        uvData;
     int width;
     int height;
+    int colorFormat; // 1= YUV420, 2= NV21
 };
 bool mNeedDetach = false;
 jbyteArray yuvData;
 int yuvDataSize= 0;
+
+jbyteArray yData;
+jbyteArray uData;
+jbyteArray vData;
+jbyteArray uvData;
+
+
 void* callbackToJava(void* arg) {
     struct thread_para *pars;
     pars=(struct thread_para*)arg;
@@ -71,7 +79,7 @@ void* callbackToJava(void* arg) {
 
     //获取要回调的方法ID
     jmethodID javaCallbackId = (env)->GetMethodID( javaClass,
-                                                   "onProgressCallBack", "(J[BII)I");
+                                                   "onProgressCallBack", "(J[B[B[B[B[BIII)I");
     if (javaCallbackId == NULL) {
         LOGD("Unable to find method:onProgressCallBack");
         return (void *)123;
@@ -79,9 +87,38 @@ void* callbackToJava(void* arg) {
 
 
     if (yuvDataSize != pars->yDataSize * 1.5) {
-        (env)->DeleteGlobalRef(yuvData);
+        if (yuvData != NULL) {
+            (env)->DeleteGlobalRef(yuvData);
+        }
+
         yuvData = (env)->NewByteArray(pars->yDataSize * 1.5);
         yuvDataSize = pars->yDataSize * 1.5;
+
+        if (yData != NULL) {
+            (env)->DeleteGlobalRef(yData);
+        }
+        yData = (env)->NewByteArray(pars->yDataSize );
+        if (pars->colorFormat == AV_PIX_FMT_YUV420P) {
+            if (uData != NULL) {
+                (env)->DeleteGlobalRef(uData);
+            }
+            if (uData != NULL) {
+                (env)->DeleteGlobalRef(vData);
+            }
+            uData = (env)->NewByteArray(pars->yDataSize/4 );
+            vData = (env)->NewByteArray(pars->yDataSize/4 );
+        } else if (pars->colorFormat == AV_PIX_FMT_NV12) {
+            if (uvData != NULL) {
+                (env)->DeleteGlobalRef(uvData);
+            }
+            uvData = (env)->NewByteArray(pars->yDataSize/2 );
+
+        } else {
+            LOGE(" !!!!! ERROR!!! pix_fmt is not ok! value is %d ", pars->colorFormat);
+        }
+
+
+
     }
 
     if(yuvData == NULL ){
@@ -89,14 +126,28 @@ void* callbackToJava(void* arg) {
         return (void *)123;
     }
     (env)->SetByteArrayRegion(yuvData, 0, pars->yDataSize, (jbyte *)pars->yData);
+    (env)->SetByteArrayRegion(yuvData, pars->yDataSize  , pars->uvDataSize, (jbyte *)pars->uvData);
     /*
     (env)->SetByteArrayRegion(yuvData, pars->yDataSize, pars->uDataSize, (jbyte *)pars->uData);
     (env)->SetByteArrayRegion(yuvData, pars->yDataSize + pars->uDataSize , pars->vDataSize, (jbyte *)pars->vData);
     */
-    (env)->SetByteArrayRegion(yuvData, pars->yDataSize  , pars->uvDataSize, (jbyte *)pars->uvData);
+
+
+    (env)->SetByteArrayRegion(yData, 0, pars->yDataSize, (jbyte *)pars->yData);
+    if (pars->colorFormat == AV_PIX_FMT_YUV420P) {
+        (env)->SetByteArrayRegion(uData, 0, pars->uDataSize,(jbyte *)pars->uData);
+        (env)->SetByteArrayRegion(vData, 0 , pars->vDataSize, (jbyte *)pars->vData);
+    } else if (pars->colorFormat == AV_PIX_FMT_NV12) {
+        (env)->SetByteArrayRegion(uvData, 0, pars->uvDataSize, (jbyte *)pars->uvData);
+    } else {
+        LOGE(" !!!!! ERROR!!! pix_fmt is not ok! value is %d ", pars->colorFormat);
+    }
+
+
+
 
     //执行回调
-    (env)->CallIntMethod(g_obj, javaCallbackId, (long)counter, yuvData, pars->width, pars->height);
+    (env)->CallIntMethod(g_obj, javaCallbackId, (long)counter, yuvData, yData, uData, vData, uvData, pars->width, pars->height, pars->colorFormat);
 
     //(env)->DeleteLocalRef(yuvData);
 
@@ -199,12 +250,17 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     //4. 根据视频流信息的codec_id找到对应的解码器
     AVCodec *pCodec = avcodec_find_decoder(pCodecParameters->codec_id);
 
+    bool isUseHWDecode = false;
+
     char* mediacodec_type_str = "";
-    if(pCodecParameters->codec_id == AV_CODEC_ID_H264){
-        mediacodec_type_str = "h264_mediacodec";
-    }
-    else if(pCodecParameters->codec_id == AV_CODEC_ID_HEVC){
-        mediacodec_type_str = "hevc_mediacodec";
+    if (isUseHWDecode) {
+        if(pCodecParameters->codec_id == AV_CODEC_ID_H264){
+            mediacodec_type_str = "h264_mediacodec";
+        }
+        else if(pCodecParameters->codec_id == AV_CODEC_ID_HEVC){
+            mediacodec_type_str = "hevc_mediacodec";
+        }
+
     }
     if(mediacodec_type_str != "") {
         pCodec = avcodec_find_decoder_by_name(mediacodec_type_str);
@@ -256,6 +312,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
         return -1;
     }
 
+    LOGE("mediacodec_isUseHWDecode=%d\n" ,isUseHWDecode);
     LOGE("mediacodec_avcodec_open2 ret=%d\n" ,openResult);
     LOGE("mediacodec_width*height = %d,%d\n" ,pCodecContext->width,pCodecContext->height);
     LOGE("mediacodec_pix_fmt2 = %d\n" ,pCodecContext->pix_fmt);
@@ -420,16 +477,24 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
             t_paras.g_jvm=g_jvm;
             t_paras.counter = totalCounter;
             t_paras.yDataSize = y_size;
-            t_paras.uDataSize = y_size/ 4;
-            t_paras.vDataSize = y_size/ 4;
-            t_paras.uvDataSize = y_size/ 2;
             t_paras.yData = pFrame->data[0];
-//            t_paras.uData = pFrame->data[1];
-//            t_paras.vData = pFrame->data[2];
-            t_paras.uvData = pFrame->data[1];
+            if (pCodecContext->pix_fmt == AV_PIX_FMT_YUV420P) {
+                t_paras.uDataSize = y_size/ 4;
+                t_paras.vDataSize = y_size/ 4;
+                t_paras.uData = pFrame->data[1];
+                t_paras.vData = pFrame->data[2];
+            } else if (pCodecContext->pix_fmt == AV_PIX_FMT_NV12) {
+                t_paras.uvDataSize = y_size/ 2;
+                t_paras.uvData = pFrame->data[1];
+            } else {
+                LOGE(" !!!!! ERROR!!! pix_fmt is not ok! value is %d ", pCodecContext->pix_fmt);
+            }
+
+
+
             t_paras.width = pCodecParameters->width;
             t_paras.height = pCodecParameters->height;
-
+            t_paras.colorFormat = pCodecContext->pix_fmt;
             //pthread_t tid;
             //pthread_create(&tid, NULL, &callbackToJava,  (void *)&t_paras);
             callbackToJava((void *)&t_paras);
