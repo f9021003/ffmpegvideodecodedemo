@@ -238,7 +238,7 @@ typedef struct AVClass {
 /**
  * Send the specified message to the log if the level is less than or equal
  * to the current av_log_level. By default, all logging messages are sent to
- * stderr. This behavior can be altered by setting a different logging callback
+ * stderr. This behavior can be altered by setting a different logging callbackToJava
  * function.
  * @see av_log_set_callback
  *
@@ -254,7 +254,7 @@ void av_log(void *avcl, int level, const char *fmt, ...) av_printf_format(3, 4);
 /**
  * Send the specified message to the log once with the initial_level and then with
  * the subsequent_level. By default, all logging messages are sent to
- * stderr. This behavior can be altered by setting a different logging callback
+ * stderr. This behavior can be altered by setting a different logging callbackToJava
  * function.
  * @see av_log
  *
@@ -276,7 +276,7 @@ void av_log_once(void* avcl, int initial_level, int subsequent_level, int *state
 /**
  * Send the specified message to the log if the level is less than or equal
  * to the current av_log_level. By default, all logging messages are sent to
- * stderr. This behavior can be altered by setting a different logging callback
+ * stderr. This behavior can be altered by setting a different logging callbackToJava
  * function.
  * @see av_log_set_callback
  *
@@ -309,9 +309,9 @@ int av_log_get_level(void);
 void av_log_set_level(int level);
 
 /**
- * Set the logging callback
+ * Set the logging callbackToJava
  *
- * @note The callback must be thread safe, even if the application does not use
+ * @note The callbackToJava must be thread safe, even if the application does not use
  *       threads itself as some codecs are multithreaded.
  *
  * @see av_log_default_callback
@@ -321,7 +321,7 @@ void av_log_set_level(int level);
 void av_log_set_callback(void (*callback)(void*, int, const char*, va_list));
 
 /**
- * Default logging callback
+ * Default logging callbackToJava
  *
  * It prints the message to stderr, optionally colorizing it.
  *
@@ -347,7 +347,7 @@ const char* av_default_item_name(void* ctx);
 AVClassCategory av_default_get_category(void *ptr);
 
 /**
- * Format a line of log the same way as the default callback.
+ * Format a line of log the same way as the default callbackToJava.
  * @param line          buffer to receive the formatted line
  * @param line_size     size of the buffer
  * @param print_prefix  used to store whether the prefix must be printed;
@@ -357,7 +357,7 @@ void av_log_format_line(void *ptr, int level, const char *fmt, va_list vl,
                         char *line, int line_size, int *print_prefix);
 
 /**
- * Format a line of log the same way as the default callback.
+ * Format a line of log the same way as the default callbackToJava.
  * @param line          buffer to receive the formatted line;
  *                      may be NULL if line_size is 0
  * @param line_size     size of the buffer; at most line_size-1 characters will

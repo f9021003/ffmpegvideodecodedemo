@@ -1507,7 +1507,7 @@ typedef struct AVFormatContext {
      *
      * demuxing: set by the user before avformat_open_input().
      * muxing: set by the user before avformat_write_header()
-     * (mainly useful for AVFMT_NOFILE formats). The callback
+     * (mainly useful for AVFMT_NOFILE formats). The callbackToJava
      * should also be passed to avio_open2() if it's used to
      * open the file.
      */
@@ -1808,11 +1808,11 @@ typedef struct AVFormatContext {
     char *protocol_whitelist;
 
     /**
-     * A callback for opening new IO streams.
+     * A callbackToJava for opening new IO streams.
      *
      * Whenever a muxer or a demuxer needs to open an IO stream (typically from
      * avformat_open_input() for demuxers, but for certain formats can happen at
-     * other times as well), it will call this callback to obtain an IO context.
+     * other times as well), it will call this callbackToJava to obtain an IO context.
      *
      * @param s the format context
      * @param pb on success, the newly opened IO context should be returned here
@@ -1824,14 +1824,14 @@ typedef struct AVFormatContext {
      *
      * @note Certain muxers and demuxers do nesting, i.e. they open one or more
      * additional internal format contexts. Thus the AVFormatContext pointer
-     * passed to this callback may be different from the one facing the caller.
+     * passed to this callbackToJava may be different from the one facing the caller.
      * It will, however, have the same 'opaque' field.
      */
     int (*io_open)(struct AVFormatContext *s, AVIOContext **pb, const char *url,
                    int flags, AVDictionary **options);
 
     /**
-     * A callback for closing the streams opened with AVFormatContext.io_open().
+     * A callbackToJava for closing the streams opened with AVFormatContext.io_open().
      */
     void (*io_close)(struct AVFormatContext *s, AVIOContext *pb);
 

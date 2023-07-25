@@ -290,7 +290,7 @@ typedef int (*SSL_custom_ext_parse_cb_ex)(SSL *s, unsigned int ext_type,
                                           size_t chainidx,
                                           int *al, void *parse_arg);
 
-/* Typedef for verification callback */
+/* Typedef for verification callbackToJava */
 typedef int (*SSL_verify_cb)(int preverify_ok, X509_STORE_CTX *x509_ctx);
 
 /*
@@ -664,7 +664,7 @@ __owur int SRP_Calc_A_param(SSL *s);
  * SSL_has_matching_session_id(ssl, id, *id_len) The length value passed in
  * is set at the maximum size the session ID can be. In SSLv3/TLSv1 it is 32
  * bytes. The callback can alter this length to be less if desired. It is
- * also an error for the callback to set the size to zero.
+ * also an error for the callbackToJava to set the size to zero.
  */
 typedef int (*GEN_SESSION_CB) (SSL *ssl, unsigned char *id,
                                unsigned int *id_len);
@@ -910,20 +910,20 @@ __owur int SSL_extension_supported(unsigned int ext_type);
 # define SSL_MAC_FLAG_WRITE_MAC_STREAM 2
 
 /*
- * A callback for logging out TLS key material. This callback should log out
+ * A callback for logging out TLS key material. This callbackToJava should log out
  * |line| followed by a newline.
  */
 typedef void (*SSL_CTX_keylog_cb_func)(const SSL *ssl, const char *line);
 
 /*
- * SSL_CTX_set_keylog_callback configures a callback to log key material. This
+ * SSL_CTX_set_keylog_callback configures a callbackToJava to log key material. This
  * is intended for debugging use with tools like Wireshark. The cb function
  * should log line followed by a newline.
  */
 void SSL_CTX_set_keylog_callback(SSL_CTX *ctx, SSL_CTX_keylog_cb_func cb);
 
 /*
- * SSL_CTX_get_keylog_callback returns the callback configured by
+ * SSL_CTX_get_keylog_callback returns the callbackToJava configured by
  * SSL_CTX_set_keylog_callback.
  */
 SSL_CTX_keylog_cb_func SSL_CTX_get_keylog_callback(const SSL_CTX *ctx);
@@ -1058,7 +1058,7 @@ typedef enum {
 # define SSL_CB_EXIT                     0x02
 # define SSL_CB_READ                     0x04
 # define SSL_CB_WRITE                    0x08
-# define SSL_CB_ALERT                    0x4000/* used in callback */
+# define SSL_CB_ALERT                    0x4000/* used in callbackToJava */
 # define SSL_CB_READ_ALERT               (SSL_CB_ALERT|SSL_CB_READ)
 # define SSL_CB_WRITE_ALERT              (SSL_CB_ALERT|SSL_CB_WRITE)
 # define SSL_CB_ACCEPT_LOOP              (SSL_ST_ACCEPT|SSL_CB_LOOP)
@@ -1486,7 +1486,7 @@ DECLARE_PEM_rw(SSL_SESSION, SSL_SESSION)
 #  define SSL_CTX_set_ecdh_auto(dummy, onoff)      ((onoff) != 0)
 #  define SSL_set_ecdh_auto(dummy, onoff)          ((onoff) != 0)
 /*
- * We "pretend" to call the callback to avoid warnings about unused static
+ * We "pretend" to call the callbackToJava to avoid warnings about unused static
  * functions.
  */
 #  define SSL_CTX_set_tmp_rsa_callback(ctx, cb)    while(0) (cb)(NULL, 0, 0)
@@ -1790,7 +1790,7 @@ __owur char *SSL_get_srp_userinfo(SSL *s);
 # endif
 
 /*
- * ClientHello callback and helpers.
+ * ClientHello callbackToJava and helpers.
  */
 
 # define SSL_CLIENT_HELLO_SUCCESS 1
@@ -2173,7 +2173,7 @@ int DTLSv1_listen(SSL *s, BIO_ADDR *client);
 # ifndef OPENSSL_NO_CT
 
 /*
- * A callback for verifying that the received SCTs are sufficient.
+ * A callbackToJava for verifying that the received SCTs are sufficient.
  * Expected to return 1 if they are sufficient, otherwise 0.
  * May return a negative integer if an error occurs.
  * A connection should be aborted if the SCTs are deemed insufficient.
@@ -2186,7 +2186,7 @@ typedef int (*ssl_ct_validation_cb)(const CT_POLICY_EVAL_CTX *ctx,
  * the received SCTs.
  * If the callback returns a non-positive result, the connection is terminated.
  * Call this function before beginning a handshake.
- * If a NULL |callback| is provided, SCT validation is disabled.
+ * If a NULL |callbackToJava| is provided, SCT validation is disabled.
  * |arg| is arbitrary userdata that will be passed to the callback whenever it
  * is invoked. Ownership of |arg| remains with the caller.
  *
@@ -2205,7 +2205,7 @@ int SSL_CTX_set_ct_validation_callback(SSL_CTX *ctx,
 
 /*
  * The validation type enumerates the available behaviours of the built-in SSL
- * CT validation callback selected via SSL_enable_ct() and SSL_CTX_enable_ct().
+ * CT validation callbackToJava selected via SSL_enable_ct() and SSL_CTX_enable_ct().
  * The underlying callback is a static function in libssl.
  */
 enum {
@@ -2214,7 +2214,7 @@ enum {
 };
 
 /*
- * Enable CT by setting up a callback that implements one of the built-in
+ * Enable CT by setting up a callbackToJava that implements one of the built-in
  * validation variants.  The SSL_CT_VALIDATION_PERMISSIVE variant always
  * continues the handshake, the application can make appropriate decisions at
  * handshake completion.  The SSL_CT_VALIDATION_STRICT variant requires at
@@ -2225,7 +2225,7 @@ int SSL_enable_ct(SSL *s, int validation_mode);
 int SSL_CTX_enable_ct(SSL_CTX *ctx, int validation_mode);
 
 /*
- * Report whether a non-NULL callback is enabled.
+ * Report whether a non-NULL callbackToJava is enabled.
  */
 int SSL_ct_is_enabled(const SSL *s);
 int SSL_CTX_ct_is_enabled(const SSL_CTX *ctx);
@@ -2268,7 +2268,7 @@ const CTLOG_STORE *SSL_CTX_get0_ctlog_store(const SSL_CTX *ctx);
 
 # endif /* OPENSSL_NO_CT */
 
-/* What the "other" parameter contains in security callback */
+/* What the "other" parameter contains in security callbackToJava */
 /* Mask for type */
 # define SSL_SECOP_OTHER_TYPE    0xffff0000
 # define SSL_SECOP_OTHER_NONE    0
@@ -2282,7 +2282,7 @@ const CTLOG_STORE *SSL_CTX_get0_ctlog_store(const SSL_CTX *ctx);
 /* Indicated operation refers to peer key or certificate */
 # define SSL_SECOP_PEER          0x1000
 
-/* Values for "op" parameter in security callback */
+/* Values for "op" parameter in security callbackToJava */
 
 /* Called to filter ciphers */
 /* Ciphers client supports */
@@ -2371,7 +2371,7 @@ __owur int SSL_free_buffers(SSL *ssl);
 __owur int SSL_alloc_buffers(SSL *ssl);
 
 /* Status codes passed to the decrypt session ticket callback. Some of these
- * are for internal use only and are never passed to the callback. */
+ * are for internal use only and are never passed to the callbackToJava. */
 typedef int SSL_TICKET_STATUS;
 
 /* Support for ticket appdata */
@@ -2390,7 +2390,7 @@ typedef int SSL_TICKET_STATUS;
 /* same as above but the ticket needs to be renewed */
 # define SSL_TICKET_SUCCESS_RENEW    6
 
-/* Return codes for the decrypt session ticket callback */
+/* Return codes for the decrypt session ticket callbackToJava */
 typedef int SSL_TICKET_RETURN;
 
 /* An error occurred */

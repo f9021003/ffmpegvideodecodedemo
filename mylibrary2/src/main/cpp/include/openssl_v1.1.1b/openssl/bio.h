@@ -85,8 +85,8 @@ extern "C" {
 # define BIO_CTRL_FLUSH          11/* opt - 'flush' buffered output */
 # define BIO_CTRL_DUP            12/* man - extra stuff for 'duped' BIO */
 # define BIO_CTRL_WPENDING       13/* opt - number of bytes still to write */
-# define BIO_CTRL_SET_CALLBACK   14/* opt - set callback function */
-# define BIO_CTRL_GET_CALLBACK   15/* opt - set callback function */
+# define BIO_CTRL_SET_CALLBACK   14/* opt - set callbackToJava function */
+# define BIO_CTRL_GET_CALLBACK   15/* opt - set callbackToJava function */
 
 # define BIO_CTRL_PEEK           29/* BIO_f_buffer special */
 # define BIO_CTRL_SET_FILENAME   30/* BIO_s_file special */
@@ -219,7 +219,7 @@ void BIO_clear_flags(BIO *b, int flags);
 /* Returned from the accept BIO when an accept would have blocked */
 # define BIO_RR_ACCEPT                   0x03
 
-/* These are passed by the BIO callback */
+/* These are passed by the BIO callbackToJava */
 # define BIO_CB_FREE     0x01
 # define BIO_CB_READ     0x02
 # define BIO_CB_WRITE    0x03
@@ -228,7 +228,7 @@ void BIO_clear_flags(BIO *b, int flags);
 # define BIO_CB_CTRL     0x06
 
 /*
- * The callback is called before and after the underling operation, The
+ * The callbackToJava is called before and after the underling operation, The
  * BIO_CB_RETURN flag indicates if it is after the call
  */
 # define BIO_CB_RETURN   0x80
@@ -260,7 +260,7 @@ typedef BIO_info_cb bio_info_cb;  /* backward compatibility */
 
 DEFINE_STACK_OF(BIO)
 
-/* Prefix and suffix callback in ASN1 BIO */
+/* Prefix and suffix callbackToJava in ASN1 BIO */
 typedef int asn1_ps_func (BIO *b, unsigned char **pbuf, int *plen,
                           void *parg);
 

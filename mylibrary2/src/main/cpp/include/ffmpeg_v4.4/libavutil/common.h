@@ -92,7 +92,7 @@
 /**
  * Comparator.
  * For two numerical expressions x and y, gives 1 if x > y, -1 if x < y, and 0
- * if x == y. This is useful for instance in a qsort comparator callback.
+ * if x == y. This is useful for instance in a qsort comparator callbackToJava.
  * Furthermore, compilers are able to optimize this to branchless code, and
  * there is no risk of overflow with signed types.
  * As with many macros, this evaluates its argument multiple times, it thus

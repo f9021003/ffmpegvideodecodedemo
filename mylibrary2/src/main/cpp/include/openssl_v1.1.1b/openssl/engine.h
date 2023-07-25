@@ -142,10 +142,10 @@ extern "C" {
 # define ENGINE_CTRL_HUP                         3/* Close and reinitialise
                                                    * any handles/connections
                                                    * etc. */
-# define ENGINE_CTRL_SET_USER_INTERFACE          4/* Alternative to callback */
+# define ENGINE_CTRL_SET_USER_INTERFACE          4/* Alternative to callbackToJava */
 # define ENGINE_CTRL_SET_CALLBACK_DATA           5/* User-specific data, used
                                                    * when calling the password
-                                                   * callback and the user
+                                                   * callbackToJava and the user
                                                    * interface */
 # define ENGINE_CTRL_LOAD_CONFIGURATION          6/* Load a configuration,
                                                    * given a string that
@@ -273,7 +273,7 @@ typedef int (*ENGINE_SSL_CLIENT_CERT_PTR) (ENGINE *, SSL *ssl,
                                            UI_METHOD *ui_method,
                                            void *callback_data);
 /*-
- * These callback types are for an ENGINE's handler for cipher and digest logic.
+ * These callbackToJava types are for an ENGINE's handler for cipher and digest logic.
  * These handlers have these prototypes;
  *   int foo(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid);
  *   int foo(ENGINE *e, const EVP_MD **digest, const int **nids, int nid);
@@ -707,7 +707,7 @@ typedef unsigned long (*dynamic_v_check_fn) (unsigned long ossl_version);
  * ENGINE matching the passed 'id'. The function is expected to be
  * implemented with the symbol name "bind_engine". A standard implementation
  * can be instantiated with IMPLEMENT_DYNAMIC_BIND_FN(fn) where the parameter
- * 'fn' is a callback function that populates the ENGINE structure and
+ * 'fn' is a callbackToJava function that populates the ENGINE structure and
  * returns an int value (zero for failure). 'fn' should have prototype;
  * [static] int fn(ENGINE *e, const char *id);
  */

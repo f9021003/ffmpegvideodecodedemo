@@ -2,6 +2,11 @@ package android.spport.ffmpegdemo2;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -9,9 +14,11 @@ import android.spport.mylibrary2.AudioTrackStaticModeHelper;
 import android.spport.mylibrary2.AudioTrackStreamHelper;
 import android.spport.mylibrary2.Demo;
 import android.util.Log;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
@@ -20,6 +27,11 @@ public class MainActivity extends AppCompatActivity {
     private Demo demo;
     AudioTrackStaticModeHelper audioTrackHelper;
     AudioTrackStreamHelper audioTrackStreamHelper;
+
+
+    private String  rtspUrl = "rtsp://admin:qqq@192.168.3.72:8554/CH001.sdp";
+    private String  rtspUrl2 = "rtsp://admin:Admin123%21@192.168.4.114:554/stream2";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -27,19 +39,57 @@ public class MainActivity extends AppCompatActivity {
 
         // Example of a call to a native method
         TextView tv = findViewById(R.id.sample_text);
-
+        ImageView imageView = findViewById(R.id.imageView);
         checkPermission();
 
         demo = new Demo();
+        demo.setCallBackListener(new Demo.CallBackListener() {
+            @Override
+            public void imageCallBack_jni(long total, byte[] imageYUVData,  int width, int height) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        long startTime = System.currentTimeMillis();
+//                        byte[] yuvData = new byte[(int)(width*height*1.5)];
+//                        System.arraycopy(imageYData, 0, yuvData, 0, imageYData.length);
+//                        System.arraycopy(imageUData, 0, yuvData, imageYData.length, imageUData.length);
+//                        System.arraycopy(imageVData, 0, yuvData, imageYData.length + imageUData.length, imageVData.length);
+
+                        ByteArrayOutputStream out = new ByteArrayOutputStream();
+                        YuvImage yuvImage = new YuvImage(imageYUVData, ImageFormat.NV21, width, height, null);
+                        yuvImage.compressToJpeg(new Rect(0, 0, width, height), 50, out);
+                        byte[] imageBytes = out.toByteArray();
+                        Bitmap image = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                        imageView.setImageBitmap(image);
+
+                        Log.d("MainActivity", "time_ =" +  (System.currentTimeMillis() - startTime)+  ", total:"+total +"(" + width +"*"+ height + ") ,imageData=" + imageYUVData.length );
+                    }
+                });
+
+
+
+            }
+        });
+
         tv.setText(demo.stringFromJNI());
         String folderurl= Environment.getExternalStorageDirectory().getPath();
         File externalFilesDir = getExternalFilesDir(null);
         Log.i("MainActivity", "externalFilesDir: "+externalFilesDir);
 
-        //demo.decodeVideo(externalFilesDir+"/Big_Buck_Bunny_1080_10s_1MB_h264.mp4", externalFilesDir+"/output7.yuv");
-        demo.decodeVideo("rtsp://admin:Admin123%21@192.168.4.114:554/stream2", externalFilesDir+"/output7.yuv");
+//        demo.decodeVideo(externalFilesDir+"/Big_Buck_Bunny_1080_10s_1MB_h264.mp4", externalFilesDir+"/output7.yuv");
+//        demo.decodeVideo(rtspUrl2, externalFilesDir+"/output7.yuv");
 //        demo.decodeVideo2(folderurl+"/input.mp4", externalFilesDir+"/output8.yuv");
         //demo.decodeAudio(folderurl+"/input.mp4", externalFilesDir+"/audio.pcm");
+
+
+        new Thread(new Runnable() {
+
+            public void run() {
+//                demo.decodeVideo(rtspUrl2, externalFilesDir+"/output7.yuv");
+                demo.decodeVideo(externalFilesDir+"/Big_Buck_Bunny_1080_10s_1MB_h264.mp4", externalFilesDir+"/output7.yuv");
+            }
+        }).start();
+
 
 
 //        initAudioTrackStaticMode(externalFilesDir);

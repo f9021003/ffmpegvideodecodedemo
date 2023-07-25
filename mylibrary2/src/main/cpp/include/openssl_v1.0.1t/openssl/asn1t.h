@@ -712,7 +712,7 @@ typedef struct ASN1_PRIMITIVE_FUNCS_st {
  * the ASN1 encoding and decoding. It can be used to provide minor
  * customisation of the structures used. This is most useful where the
  * supplied routines *almost* do the right thing but need some extra help at
- * a few points. If the callback returns zero then it is assumed a fatal
+ * a few points. If the callbackToJava returns zero then it is assumed a fatal
  * error has occurred and the main operation should be abandoned. If major
  * changes in the default behaviour are required then an external type is
  * more appropriate.

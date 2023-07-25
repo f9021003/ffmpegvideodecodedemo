@@ -93,11 +93,11 @@ int BN_GENCB_call(BN_GENCB *cb, int a, int b);
 BN_GENCB *BN_GENCB_new(void);
 void BN_GENCB_free(BN_GENCB *cb);
 
-/* Populate a BN_GENCB structure with an "old"-style callback */
+/* Populate a BN_GENCB structure with an "old"-style callbackToJava */
 void BN_GENCB_set_old(BN_GENCB *gencb, void (*callback) (int, int, void *),
                       void *cb_arg);
 
-/* Populate a BN_GENCB structure with a "new"-style callback */
+/* Populate a BN_GENCB structure with a "new"-style callbackToJava */
 void BN_GENCB_set(BN_GENCB *gencb, int (*callback) (int, int, BN_GENCB *),
                   void *cb_arg);
 

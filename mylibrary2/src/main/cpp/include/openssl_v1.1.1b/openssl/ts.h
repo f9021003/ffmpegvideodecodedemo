@@ -375,14 +375,14 @@ int TS_RESP_CTX_set_clock_precision_digits(TS_RESP_CTX *ctx,
 /* No flags are set by default. */
 void TS_RESP_CTX_add_flags(TS_RESP_CTX *ctx, int flags);
 
-/* Default callback always returns a constant. */
+/* Default callbackToJava always returns a constant. */
 void TS_RESP_CTX_set_serial_cb(TS_RESP_CTX *ctx, TS_serial_cb cb, void *data);
 
-/* Default callback uses the gettimeofday() and gmtime() system calls. */
+/* Default callbackToJava uses the gettimeofday() and gmtime() system calls. */
 void TS_RESP_CTX_set_time_cb(TS_RESP_CTX *ctx, TS_time_cb cb, void *data);
 
 /*
- * Default callback rejects all extensions. The extension callback is called
+ * Default callback rejects all extensions. The extension callbackToJava is called
  * when the TS_TST_INFO object is already set up and not signed yet.
  */
 /* FIXME: extension handling is not tested yet. */
@@ -399,7 +399,7 @@ int TS_RESP_CTX_set_status_info_cond(TS_RESP_CTX *ctx,
 
 int TS_RESP_CTX_add_failure_info(TS_RESP_CTX *ctx, int failure);
 
-/* The get methods below can be used in the extension callback. */
+/* The get methods below can be used in the extension callbackToJava. */
 TS_REQ *TS_RESP_CTX_get_request(TS_RESP_CTX *ctx);
 
 TS_TST_INFO *TS_RESP_CTX_get_tst_info(TS_RESP_CTX *ctx);

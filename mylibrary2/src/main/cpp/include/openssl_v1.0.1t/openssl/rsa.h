@@ -121,7 +121,7 @@ struct rsa_meth_st {
                        unsigned int m_length, const unsigned char *sigbuf,
                        unsigned int siglen, const RSA *rsa);
     /*
-     * If this callback is NULL, the builtin software RSA key-gen will be
+     * If this callbackToJava is NULL, the builtin software RSA key-gen will be
      * used. This is for behavioural compatibility whilst the code gets
      * rewired, but one day it would be nice to assume there are no such
      * things as "builtin software" implementations.

@@ -39,7 +39,7 @@
  */
 
 /**
- * Decoder can use draw_horiz_band callback.
+ * Decoder can use draw_horiz_band callbackToJava.
  */
 #define AV_CODEC_CAP_DRAW_HORIZ_BAND     (1 <<  0)
 /**
@@ -414,7 +414,7 @@ enum {
      *
      * When selecting this format for a decoder,
      * AVCodecContext.hw_frames_ctx should be set to a suitable frames
-     * context inside the get_format() callback.  The frames context
+     * context inside the get_format() callbackToJava.  The frames context
      * must have been created on a device of the specified type.
      *
      * When selecting this format for an encoder,

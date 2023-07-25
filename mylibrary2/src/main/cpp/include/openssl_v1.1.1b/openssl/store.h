@@ -31,7 +31,7 @@ extern "C" {
 typedef struct ossl_store_ctx_st OSSL_STORE_CTX;
 
 /*
- * Typedef for the OSSL_STORE_INFO post processing callback.  This can be used
+ * Typedef for the OSSL_STORE_INFO post processing callbackToJava.  This can be used
  * to massage the given OSSL_STORE_INFO, or to drop it entirely (by returning
  * NULL).
  */

@@ -210,7 +210,7 @@ void X509_STORE_CTX_set_depth(X509_STORE_CTX *ctx, int depth);
 # define X509_V_FLAG_INHIBIT_ANY                 0x200
 /* Policy variable inhibit-policy-mapping */
 # define X509_V_FLAG_INHIBIT_MAP                 0x400
-/* Notify callback that policy is OK */
+/* Notify callbackToJava that policy is OK */
 # define X509_V_FLAG_NOTIFY_POLICY               0x800
 /* Extended CRL features such as indirect CRLs, alternate CRL signing keys */
 # define X509_V_FLAG_EXTENDED_CRL_SUPPORT        0x1000

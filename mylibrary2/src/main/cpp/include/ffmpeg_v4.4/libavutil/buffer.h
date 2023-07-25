@@ -136,7 +136,7 @@ AVBufferRef *av_buffer_allocz(size_t size);
  * If this function fails, data is left untouched.
  * @param data   data array
  * @param size   size of data in bytes
- * @param free   a callback for freeing this buffer's data
+ * @param free   a callbackToJava for freeing this buffer's data
  * @param opaque parameter to be got for processing or passed to free
  * @param flags  a combination of AV_BUFFER_FLAG_*
  *
@@ -151,7 +151,7 @@ AVBufferRef *av_buffer_create(uint8_t *data, size_t size,
                               void *opaque, int flags);
 
 /**
- * Default free callback, which calls av_free() on the buffer data.
+ * Default free callbackToJava, which calls av_free() on the buffer data.
  * This function is meant to be passed to av_buffer_create(), not called
  * directly.
  */
@@ -265,7 +265,7 @@ int av_buffer_replace(AVBufferRef **dst, AVBufferRef *src);
  * Once all the buffers are released, it will automatically be freed.
  *
  * Allocating and releasing buffers with this API is thread-safe as long as
- * either the default alloc callback is used, or the user-supplied one is
+ * either the default alloc callbackToJava is used, or the user-supplied one is
  * thread-safe.
  */
 

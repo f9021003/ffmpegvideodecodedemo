@@ -156,7 +156,7 @@ char *UI_construct_prompt(UI *ui_method,
  * The following function is used to store a pointer to user-specific data.
  * Any previous such pointer will be returned and replaced.
  *
- * For callback purposes, this function makes a lot more sense than using
+ * For callbackToJava purposes, this function makes a lot more sense than using
  * ex_data, since the latter requires that different parts of OpenSSL or
  * applications share the same ex_data index.
  *

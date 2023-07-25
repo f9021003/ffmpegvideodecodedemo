@@ -366,23 +366,23 @@ struct bn_recp_ctx_st {
 /* Used for slow "generation" functions. */
 struct bn_gencb_st {
     unsigned int ver;           /* To handle binary (in)compatibility */
-    void *arg;                  /* callback-specific data */
+    void *arg;                  /* callbackToJava-specific data */
     union {
         /* if(ver==1) - handles old style callbacks */
         void (*cb_1) (int, int, void *);
-        /* if(ver==2) - new callback style */
+        /* if(ver==2) - new callbackToJava style */
         int (*cb_2) (int, int, BN_GENCB *);
     } cb;
 };
 /* Wrapper function to make using BN_GENCB easier,  */
 int BN_GENCB_call(BN_GENCB *cb, int a, int b);
-/* Macro to populate a BN_GENCB structure with an "old"-style callback */
+/* Macro to populate a BN_GENCB structure with an "old"-style callbackToJava */
 # define BN_GENCB_set_old(gencb, callback, cb_arg) { \
                 BN_GENCB *tmp_gencb = (gencb); \
                 tmp_gencb->ver = 1; \
                 tmp_gencb->arg = (cb_arg); \
                 tmp_gencb->cb.cb_1 = (callback); }
-/* Macro to populate a BN_GENCB structure with a "new"-style callback */
+/* Macro to populate a BN_GENCB structure with a "new"-style callbackToJava */
 # define BN_GENCB_set(gencb, callback, cb_arg) { \
                 BN_GENCB *tmp_gencb = (gencb); \
                 tmp_gencb->ver = 2; \

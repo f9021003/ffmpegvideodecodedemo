@@ -748,11 +748,11 @@ void SSL_set_msg_callback(SSL *ssl,
 typedef struct srp_ctx_st {
     /* param for all the callbacks */
     void *SRP_cb_arg;
-    /* set client Hello login callback */
+    /* set client Hello login callbackToJava */
     int (*TLS_ext_srp_username_callback) (SSL *, int *, void *);
-    /* set SRP N/g param callback for verification */
+    /* set SRP N/g param callbackToJava for verification */
     int (*SRP_verify_param_callback) (SSL *, void *);
-    /* set SRP client passwd callback */
+    /* set SRP client passwd callbackToJava */
     char *(*SRP_give_srp_client_pwd_callback) (SSL *, void *);
     char *login;
     BIGNUM *N, *g, *s, *B, *A;
@@ -798,7 +798,7 @@ int SRP_generate_client_master_secret(SSL *s, unsigned char *master_key);
  * bytes, whereas SSLv3/TLSv1 it is 32 bytes. The callback can alter this
  * length to be less if desired, but under SSLv2 session IDs are supposed to
  * be fixed at 16 bytes so the id will be padded after the callback returns
- * in this case. It is also an error for the callback to set the size to
+ * in this case. It is also an error for the callbackToJava to set the size to
  * zero.
  */
 typedef int (*GEN_SESSION_CB) (const SSL *ssl, unsigned char *id,
@@ -850,7 +850,7 @@ struct ssl_ctx_st {
     /*
      * If this callback is not null, it will be called each time a session id
      * is added to the cache.  If this function returns 1, it means that the
-     * callback will do a SSL_SESSION_free() when it has finished using it.
+     * callbackToJava will do a SSL_SESSION_free() when it has finished using it.
      * Otherwise, on 0, it means the callback has finished with it. If
      * remove_session_cb is not null, it will be called when a session-id is
      * removed from the cache.  After the call, OpenSSL will
@@ -872,7 +872,7 @@ struct ssl_ctx_st {
         int sess_cache_full;    /* session removed due to full cache */
         int sess_hit;           /* session reuse actually done */
         int sess_cb_hit;        /* session-id that was not in the cache was
-                                 * passed back via the callback.  This
+                                 * passed back via the callbackToJava.  This
                                  * indicates that the application is
                                  * supplying session-id's from other
                                  * processes - spooky :-) */
@@ -888,20 +888,20 @@ struct ssl_ctx_st {
      * ('app_verify_callback' was called with just one argument)
      */
 
-    /* Default password callback. */
+    /* Default password callbackToJava. */
     pem_password_cb *default_passwd_callback;
 
-    /* Default password callback user data. */
+    /* Default password callbackToJava user data. */
     void *default_passwd_callback_userdata;
 
-    /* get client cert callback */
+    /* get client cert callbackToJava */
     int (*client_cert_cb) (SSL *ssl, X509 **x509, EVP_PKEY **pkey);
 
-    /* cookie generate callback */
+    /* cookie generate callbackToJava */
     int (*app_gen_cookie_cb) (SSL *ssl, unsigned char *cookie,
                               unsigned int *cookie_len);
 
-    /* verify cookie callback */
+    /* verify cookie callbackToJava */
     int (*app_verify_cookie_cb) (SSL *ssl, unsigned char *cookie,
                                  unsigned int cookie_len);
 
@@ -934,7 +934,7 @@ struct ssl_ctx_st {
     struct cert_st /* CERT */ *cert;
     int read_ahead;
 
-    /* callback that allows applications to peek at protocol messages */
+    /* callbackToJava that allows applications to peek at protocol messages */
     void (*msg_callback) (int write_p, int version, int content_type,
                           const void *buf, size_t len, SSL *ssl, void *arg);
     void *msg_callback_arg;
@@ -945,7 +945,7 @@ struct ssl_ctx_st {
     /* called 'verify_callback' in the SSL */
     int (*default_verify_callback) (int ok, X509_STORE_CTX *ctx);
 
-    /* Default generate session ID callback. */
+    /* Default generate session ID callbackToJava. */
     GEN_SESSION_CB generate_session_id;
 
     X509_VERIFY_PARAM *param;
@@ -971,7 +971,7 @@ struct ssl_ctx_st {
 #  endif
 
 #  ifndef OPENSSL_NO_TLSEXT
-    /* TLS extensions servername callback */
+    /* TLS extensions servername callbackToJava */
     int (*tlsext_servername_callback) (SSL *, int *, void *);
     void *tlsext_servername_arg;
     /* RFC 4507 session ticket keys */
@@ -1024,14 +1024,14 @@ struct ssl_ctx_st {
     /* (for experimental NPN extension). */
 
     /*
-     * For a server, this contains a callback function by which the set of
+     * For a server, this contains a callbackToJava function by which the set of
      * advertised protocols can be provided.
      */
     int (*next_protos_advertised_cb) (SSL *s, const unsigned char **buf,
                                       unsigned int *len, void *arg);
     void *next_protos_advertised_cb_arg;
     /*
-     * For a client, this contains a callback function that selects the next
+     * For a client, this contains a callbackToJava function that selects the next
      * protocol from the list provided by the server.
      */
     int (*next_proto_select_cb) (SSL *s, unsigned char **out,
@@ -1318,7 +1318,7 @@ struct ssl_st {
     struct dtls1_state_st *d1;  /* DTLSv1 variables */
     int read_ahead;             /* Read as many input bytes as possible (for
                                  * non-blocking reads) */
-    /* callback that allows applications to peek at protocol messages */
+    /* callbackToJava that allows applications to peek at protocol messages */
     void (*msg_callback) (int write_p, int version, int content_type,
                           const void *buf, size_t len, SSL *ssl, void *arg);
     void *msg_callback_arg;
@@ -1362,7 +1362,7 @@ struct ssl_st {
     unsigned char sid_ctx[SSL_MAX_SID_CTX_LENGTH];
     /* This can also be in the session once a session is established */
     SSL_SESSION *session;
-    /* Default generate session ID callback. */
+    /* Default generate session ID callbackToJava. */
     GEN_SESSION_CB generate_session_id;
     /* Used in SSL2 and SSL3 */
     /*
@@ -1370,9 +1370,9 @@ struct ssl_st {
      * 1 fail if verify fails
      */
     int verify_mode;
-    /* fail if callback returns 0 */
+    /* fail if callbackToJava returns 0 */
     int (*verify_callback) (int ok, X509_STORE_CTX *ctx);
-    /* optional informational callback */
+    /* optional informational callbackToJava */
     void (*info_callback) (const SSL *ssl, int type, int val);
     /* error bytes to be written */
     int error;
@@ -1414,14 +1414,14 @@ struct ssl_st {
     int client_version;
     unsigned int max_send_fragment;
 #  ifndef OPENSSL_NO_TLSEXT
-    /* TLS extension debug callback */
+    /* TLS extension debug callbackToJava */
     void (*tlsext_debug_cb) (SSL *s, int client_server, int type,
                              unsigned char *data, int len, void *arg);
     void *tlsext_debug_arg;
     char *tlsext_hostname;
     /*-
      * no further mod of servername
-     * 0 : call the servername extension callback.
+     * 0 : call the servername extension callbackToJava.
      * 1 : prepare 2, allow last ack just after in server callback.
      * 2 : don't call servername callback, no ack in server hello
      */
@@ -1455,7 +1455,7 @@ struct ssl_st {
     size_t tlsext_opaque_prf_input_len;
     /* TLS Session Ticket extension override */
     TLS_SESSION_TICKET_EXT *tlsext_session_ticket;
-    /* TLS Session Ticket extension callback */
+    /* TLS Session Ticket extension callbackToJava */
     tls_session_ticket_ext_cb_fn tls_session_ticket_ext_cb;
     void *tls_session_ticket_ext_cb_arg;
     /* TLS pre-shared secret session resumption */
@@ -1550,7 +1550,7 @@ extern "C" {
 # define SSL_CB_EXIT                     0x02
 # define SSL_CB_READ                     0x04
 # define SSL_CB_WRITE                    0x08
-# define SSL_CB_ALERT                    0x4000/* used in callback */
+# define SSL_CB_ALERT                    0x4000/* used in callbackToJava */
 # define SSL_CB_READ_ALERT               (SSL_CB_ALERT|SSL_CB_READ)
 # define SSL_CB_WRITE_ALERT              (SSL_CB_ALERT|SSL_CB_WRITE)
 # define SSL_CB_ACCEPT_LOOP              (SSL_ST_ACCEPT|SSL_CB_LOOP)

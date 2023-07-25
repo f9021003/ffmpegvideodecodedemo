@@ -1,7 +1,7 @@
 #include <jni.h>
 #include <string>
 #include <unistd.h>
-
+#include <pthread.h>
 
 extern "C" {
 //#include "include/libavcodec/avcodec.h"
@@ -20,10 +20,101 @@ extern "C" {
 jint playPcmBySL(JNIEnv *env,  jstring pcm_path);
 JavaVM *g_jvm; // global for JVM init Info
 
+jobject g_obj;
+struct thread_para {
+    int counter;
+    JavaVM *g_jvm;
+    int yDataSize;
+    int uDataSize;
+    int vDataSize;
+    int uvDataSize;
+    uint8_t*        yData;
+    uint8_t*        uData;
+    uint8_t*        vData;
+    uint8_t*        uvData;
+    int width;
+    int height;
+};
+bool mNeedDetach = false;
+jbyteArray yuvData;
+int yuvDataSize= 0;
+void* callbackToJava(void* arg) {
+    struct thread_para *pars;
+    pars=(struct thread_para*)arg;
+    JavaVM* g_jvm = pars->g_jvm;
+    int counter = pars->counter;
+
+    JNIEnv *env;
+    //获取当前native线程是否有没有被附加到jvm环境中
+    int getEnvStat = (g_jvm)->GetEnv( (void **) &env,JNI_VERSION_1_6);
+    if (getEnvStat == JNI_EDETACHED) {
+        //如果没有， 主动附加到jvm环境中，获取到env
+        if ((g_jvm)->AttachCurrentThread( &env, NULL) != 0) {
+            return (void *)123;
+        }
+        mNeedDetach = JNI_TRUE;
+    }
+
+    //通过全局变量g_obj 获取到要回调的类
+    jclass javaClass = (env)->GetObjectClass(g_obj);
+
+    if (javaClass == 0) {
+        //释放当前线程
+        if(mNeedDetach) {
+            (g_jvm)->DetachCurrentThread();
+        }
+        return (void *)123;
+    }
+
+
+
+
+    //获取要回调的方法ID
+    jmethodID javaCallbackId = (env)->GetMethodID( javaClass,
+                                                   "onProgressCallBack", "(J[BII)I");
+    if (javaCallbackId == NULL) {
+        LOGD("Unable to find method:onProgressCallBack");
+        return (void *)123;
+    }
+
+
+    if (yuvDataSize != pars->yDataSize * 1.5) {
+        (env)->DeleteGlobalRef(yuvData);
+        yuvData = (env)->NewByteArray(pars->yDataSize * 1.5);
+        yuvDataSize = pars->yDataSize * 1.5;
+    }
+
+    if(yuvData == NULL ){
+        LOGE("No memory could be allocated for buffer");
+        return (void *)123;
+    }
+    (env)->SetByteArrayRegion(yuvData, 0, pars->yDataSize, (jbyte *)pars->yData);
+    /*
+    (env)->SetByteArrayRegion(yuvData, pars->yDataSize, pars->uDataSize, (jbyte *)pars->uData);
+    (env)->SetByteArrayRegion(yuvData, pars->yDataSize + pars->uDataSize , pars->vDataSize, (jbyte *)pars->vData);
+    */
+    (env)->SetByteArrayRegion(yuvData, pars->yDataSize  , pars->uvDataSize, (jbyte *)pars->uvData);
+
+    //执行回调
+    (env)->CallIntMethod(g_obj, javaCallbackId, (long)counter, yuvData, pars->width, pars->height);
+
+    //(env)->DeleteLocalRef(yuvData);
+
+    //释放当前线程
+    //释放当前线程
+    if(mNeedDetach) {
+        (g_jvm)->DetachCurrentThread();
+    }
+    return (void *)123;
+
+}
+
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 
     LOGD("<Tony> JNI_OnLoad");
+    //JavaVM是虚拟机在JNI中的表示，等下再其他线程回调java层需要用到
     g_jvm = vm;
+
 
     return JNI_VERSION_1_4;
 }
@@ -46,10 +137,29 @@ Java_android_spport_mylibrary2_Demo_stringFromJNI(
 }
 
 
+
+
+AVPixelFormat hw_pix_fmt;
+static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
+                                        const enum AVPixelFormat *pix_fmts)
+{
+    const enum AVPixelFormat *p;
+
+    for (p = pix_fmts; *p != -1; p++) {
+        if (*p == hw_pix_fmt)
+            return *p;
+    }
+
+    LOGE("Failed to get HW surface format.\n");
+    return AV_PIX_FMT_NONE;
+}
 extern "C"
 JNIEXPORT jint JNICALL
 Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstring inputPath,
                                                 jstring outPath) {
+    // 生成一个全局引用保留下来，以便回调
+    g_obj = env->NewGlobalRef(thiz);
+
     //申请avFormatContext空间，记得要释放
     AVFormatContext *avFormatContext = avformat_alloc_context();
 
@@ -98,6 +208,23 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     }
     if(mediacodec_type_str != "") {
         pCodec = avcodec_find_decoder_by_name(mediacodec_type_str);
+
+        // 配置硬解码器
+        int i;
+        for (i = 0;; i++) {
+            const AVCodecHWConfig *config = avcodec_get_hw_config(pCodec, i);
+            if (nullptr == config) {
+                LOGE("获取硬解码是配置失败");
+                return 0;
+            }
+            if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
+                config->device_type == AV_HWDEVICE_TYPE_MEDIACODEC) {
+                hw_pix_fmt = config->pix_fmt;
+                LOGE("硬件解码器配置成功");
+                break;
+            }
+        }
+
     }
 
 
@@ -108,7 +235,21 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
 
     AVCodecContext *pCodecContext = avFormatContext->streams[videoIndex]->codec;
     pCodecContext->thread_count = 8;//就这个是关键。
+    /*pCodecContext->get_format = get_hw_format;
+    // 硬件解码器初始化
+    AVBufferRef *hw_device_ctx = nullptr;
+    int ret1 = av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_MEDIACODEC,
+                                 nullptr, nullptr, 0);
+    if (ret1 < 0) {
+        LOGE("Failed to create specified HW device");
+        return 0;
+    }
+    pCodecContext->hw_device_ctx = av_buffer_ref(hw_device_ctx);*/
     //5.使用给定的AVCodec初始化AVCodecContext
+    //AVDictionary* options = NULL;
+    //av_dict_set(&options, "rtsp_transport", "udp", 0);
+    //av_dict_set(&options, "buffer_size", "8388608", 0); //设置udp的接收缓冲
+
     int openResult = avcodec_open2(pCodecContext, pCodec, NULL);
     if (openResult < 0) {
         LOGE("avcodec open2 result %d", openResult);
@@ -158,9 +299,9 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     int totalCounter = 0;
     int frame_cnt = 0;
     clock_t startTime = clock();
-
+/*
     //7. 开始一帧一帧读取
-    /*while ((readPackCount = av_read_frame(avFormatContext, packet) >= 0)) {
+    while ((readPackCount = av_read_frame(avFormatContext, packet) >= 0)) {
 
 
         if (packet->stream_index == videoIndex) {
@@ -169,6 +310,12 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
             //8. send AVPacket
             int sendPacket = avcodec_send_packet(pCodecContext, packet);
             //return 0 on success, otherwise negative error code:
+            if (sendPacket == AVERROR(EAGAIN)) {
+                //输入的packet未被接收，需要输出一个或多个的frame后才能重新输入当前packet。等待下一帧 所以进行下次循环
+                LOGE("avodec send packet sendPacket == AVERROR(EAGAIN");
+                av_packet_unref(packet);
+
+            }
             if (sendPacket != 0) {
                 LOGE("avodec send packet error %d", sendPacket);
                 //continue;
@@ -190,17 +337,17 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
                 LOGE("avcodec_receive_frame success(%d). counter=%d", frame_cnt, counter);
 
 
-                //10. 格式转换
-                *//*sws_scale(img_convert_ctx, (const uint8_t *const *) pFrame->data, pFrame->linesize,
-                          0, pCodecContext->height,
-                          pFrameYUV->data, pFrameYUV->linesize);
-
-                //11. 分别写入YUV数据
-                int y_size = pCodecParameters->width * pCodecParameters->height;
-                //YUV420p
-                fwrite(pFrameYUV->data[0], 1, y_size, pYUVFile);//Y
-                fwrite(pFrameYUV->data[1], 1, y_size / 4, pYUVFile);//U
-                fwrite(pFrameYUV->data[2], 1, y_size / 4, pYUVFile);//V
+//                //10. 格式转换
+//                sws_scale(img_convert_ctx, (const uint8_t *const *) pFrame->data, pFrame->linesize,
+//                          0, pCodecContext->height,
+//                          pFrameYUV->data, pFrameYUV->linesize);
+////
+//                //11. 分别写入YUV数据
+//                int y_size = pCodecParameters->width * pCodecParameters->height;
+//                //YUV420p
+//                fwrite(pFrameYUV->data[0], 1, y_size, pYUVFile);//Y
+//                fwrite(pFrameYUV->data[1], 1, y_size / 4, pYUVFile);//U
+//                fwrite(pFrameYUV->data[2], 1, y_size / 4, pYUVFile);//V
 
                 //输出I、P、B帧信息
                 char pictypeStr[10] = {0};
@@ -219,50 +366,100 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
                     }
                 }
                 LOGI("Frame index %5d. Tpye %s", frame_cnt, pictypeStr);
-                 *//*
+
                 frame_cnt++;
 
             }
         }
         //释放packet
         av_packet_unref(packet);
-    }*/
-     int ret = 0 ;
+    }
+ */
+
+
+/**/
+
+
+    int ret =  AVERROR(EAGAIN);
     int decodeSuccessCounter = 0;
     int decodeFailCounter = 0;
     while (true) {
         totalCounter++;
         ret = avcodec_receive_frame(pCodecContext, pFrame);
+
         LOGE("avcodec_receive_frame ret=%d. ,%d", ret, totalCounter);
         if (ret == 0) {
             decodeSuccessCounter++;
 
             frame_cnt++;
             // process with decode_frame
-            LOGE("avcodec_receive_frame success(%d). decodeSuccess=%d,decodeFail = %d ", frame_cnt, decodeSuccessCounter, decodeFailCounter);
-            av_frame_unref(pFrame);
+
+            LOGE("avcodec_receive_frame success(%d). decodeSuccess=%d,decodeFail = %d. pts=%ld, dts=%ld,", frame_cnt, decodeSuccessCounter, decodeFailCounter, pFrame->pkt_pts, pFrame->pkt_dts );
             decodeFailCounter = 0;
+
+/*
+            sws_scale(img_convert_ctx, (const uint8_t *const *) pFrame->data, pFrame->linesize,
+          0, pCodecContext->height,
+          pFrameYUV->data, pFrameYUV->linesize);
+*/
+
+            //11. 分别写入YUV数据
+            int y_size = pCodecParameters->width * pCodecParameters->height;
+            //YUV420p
+//            fwrite(pFrameYUV->data[0], 1, y_size, pYUVFile);//Y
+//            fwrite(pFrameYUV->data[1], 1, y_size / 4, pYUVFile);//U
+//            fwrite(pFrameYUV->data[2], 1, y_size / 4, pYUVFile);//V
+
+
+
+
+
+            pthread_t t;
+            struct thread_para t_paras;
+            memset( &t_paras, 0 ,sizeof( t_paras ) ) ;
+            t_paras.g_jvm=g_jvm;
+            t_paras.counter = totalCounter;
+            t_paras.yDataSize = y_size;
+            t_paras.uDataSize = y_size/ 4;
+            t_paras.vDataSize = y_size/ 4;
+            t_paras.uvDataSize = y_size/ 2;
+            t_paras.yData = pFrame->data[0];
+//            t_paras.uData = pFrame->data[1];
+//            t_paras.vData = pFrame->data[2];
+            t_paras.uvData = pFrame->data[1];
+            t_paras.width = pCodecParameters->width;
+            t_paras.height = pCodecParameters->height;
+
+            //pthread_t tid;
+            //pthread_create(&tid, NULL, &callbackToJava,  (void *)&t_paras);
+            callbackToJava((void *)&t_paras);
+
             continue;
         } else if (ret == AVERROR(EAGAIN)) {
-            decodeFailCounter++;
-            decodeSuccessCounter = 0;
+
             ret = av_read_frame(avFormatContext, packet);
-
-            LOGI("(%d) read fame count is %d, pts=%ld, dts=%ld", totalCounter, readPackCount, packet->pts, packet->dts);
-
+            packet->pts = AV_NOPTS_VALUE;
             if (ret == AVERROR_EOF) {
                 LOGE("====AVERROR_EOF=====");
                 break;
             }
-            readPackCount++;
-
             if (packet->stream_index == videoIndex) {
+                readPackCount++;
+                decodeFailCounter++;
+                decodeSuccessCounter = 0;
+                bool is_key = (AV_PKT_FLAG_KEY == (packet->flags & AV_PKT_FLAG_KEY));
+                LOGI("(%d) read fame count is %d, pts=%ld, dts=%ld, isKey=%d", totalCounter, readPackCount, packet->pts, packet->dts, is_key);
+
                 ret = avcodec_send_packet(pCodecContext, packet);
+
                 if (ret < 0) {
                     LOGE("Error submitting a packet for decoding (%s)", av_err2str(ret));
                     av_packet_unref(packet);
 
                     continue;
+                } else {
+                   // LOGI("(%d) send packet count is %d, pts=%ld, dts=%ld, isKey=%d", totalCounter, readPackCount, packet->pts, packet->dts, is_key);
+
                 }
             }
             av_packet_unref(packet);
@@ -509,7 +706,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo2
     sprintf(input_str, "%s", env->GetStringUTFChars(input_jstr, NULL));
     sprintf(output_str, "%s", env->GetStringUTFChars(output_jstr, NULL));
 
-    //FFmpeg av_log() callback
+    //FFmpeg av_log() callbackToJava
     av_log_set_callback(custom_log);
 
     av_register_all();

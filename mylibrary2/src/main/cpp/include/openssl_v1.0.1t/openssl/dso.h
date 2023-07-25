@@ -77,7 +77,7 @@ extern "C" {
  * dso_name_converter function of the method. Eg. win32 will transform "blah"
  * into "blah.dll", and dlfcn will transform it into "libblah.so". The
  * behaviour can be overriden by setting the name_converter callback in the
- * DSO object (using DSO_set_name_converter()). This callback could even
+ * DSO object (using DSO_set_name_converter()). This callbackToJava could even
  * utilise the DSO_METHOD's converter too if it only wants to override
  * behaviour for one or two possible DSO methods. However, the following flag
  * can be set in a DSO to prevent *any* native name-translation at all - eg.
@@ -208,13 +208,13 @@ struct dso_st {
      */
     CRYPTO_EX_DATA ex_data;
     /*
-     * If this callback function pointer is set to non-NULL, then it will be
+     * If this callbackToJava function pointer is set to non-NULL, then it will be
      * used in DSO_load() in place of meth->dso_name_converter. NB: This
      * should normally set using DSO_set_name_converter().
      */
     DSO_NAME_CONVERTER_FUNC name_converter;
     /*
-     * If this callback function pointer is set to non-NULL, then it will be
+     * If this callbackToJava function pointer is set to non-NULL, then it will be
      * used in DSO_load() in place of meth->dso_merger. NB: This should
      * normally set using DSO_set_merger().
      */
@@ -228,7 +228,7 @@ struct dso_st {
      * This is populated with (a copy of) the translated filename by which
      * the DSO was actually loaded. It is NULL iff the DSO is not currently
      * loaded. NB: This is here because the filename translation process may
-     * involve a callback being invoked more than once not only to convert to
+     * involve a callbackToJava being invoked more than once not only to convert to
      * a platform-specific form, but also to try different filenames in the
      * process of trying to perform a load. As such, this variable can be
      * used to indicate (a) whether this DSO structure corresponds to a
@@ -246,7 +246,7 @@ int DSO_up_ref(DSO *dso);
 long DSO_ctrl(DSO *dso, int cmd, long larg, void *parg);
 
 /*
- * This function sets the DSO's name_converter callback. If it is non-NULL,
+ * This function sets the DSO's name_converter callbackToJava. If it is non-NULL,
  * then it will be used instead of the associated DSO_METHOD's function. If
  * oldcb is non-NULL then it is set to the function pointer value being
  * replaced. Return value is non-zero for success.
@@ -261,7 +261,7 @@ const char *DSO_get_filename(DSO *dso);
 int DSO_set_filename(DSO *dso, const char *filename);
 /*
  * This function will invoke the DSO's name_converter callback to translate a
- * filename, or if the callback isn't set it will instead use the DSO_METHOD's
+ * filename, or if the callbackToJava isn't set it will instead use the DSO_METHOD's
  * converter. If "filename" is NULL, the "filename" in the DSO itself will be
  * used. If the DSO_FLAG_NO_NAME_TRANSLATION flag is set, then the filename is
  * simply duplicated. NB: This function is usually called from within a
@@ -271,7 +271,7 @@ int DSO_set_filename(DSO *dso, const char *filename);
  */
 char *DSO_convert_filename(DSO *dso, const char *filename);
 /*
- * This function will invoke the DSO's merger callback to merge two file
+ * This function will invoke the DSO's merger callbackToJava to merge two file
  * specifications, or if the callback isn't set it will instead use the
  * DSO_METHOD's merger.  A non-NULL return value will need to be
  * OPENSSL_free()'d.

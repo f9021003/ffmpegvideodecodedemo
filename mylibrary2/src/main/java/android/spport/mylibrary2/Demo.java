@@ -1,5 +1,7 @@
 package android.spport.mylibrary2;
 
+import android.util.Log;
+
 public class Demo {
 
     // Used to load the 'native-lib' library on application startup.
@@ -26,4 +28,21 @@ public class Demo {
     public native int playAudioByOpenSLES(String pcmPath);
 
 
+
+    //c层回调上来的方法
+    private int onProgressCallBack(long total,  byte[] imageYUVData,  int width, int height) {
+        //自行执行回调后的操作
+//        Log.d("Demo", "total:"+total +"(" + width +"*"+ height + ") ,imageData=" + imageYData.length );
+        callBackListener.imageCallBack_jni(total,   imageYUVData, width,  height);
+        return 1;
+    }
+
+    private CallBackListener callBackListener;
+    public void setCallBackListener(CallBackListener _callBackListener) {
+        callBackListener = _callBackListener;
+    }
+    public interface CallBackListener {
+        //取得jni端 用來存callback的imagedata usage
+        void imageCallBack_jni(long total,  byte[] imageYData, int width, int height);
+    }
 }

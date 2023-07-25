@@ -120,15 +120,15 @@ enum AVMediaType avfilter_pad_get_type(const AVFilterPad *pads, int pad_idx);
  * to enable or disable a filter in the timeline. Filters supporting this
  * option have this flag set. When the enable expression is false, the default
  * no-op filter_frame() function is called in place of the filter_frame()
- * callback defined on each input pad, thus the frame is passed unchanged to
+ * callbackToJava defined on each input pad, thus the frame is passed unchanged to
  * the next filters.
  */
 #define AVFILTER_FLAG_SUPPORT_TIMELINE_GENERIC  (1 << 16)
 /**
  * Same as AVFILTER_FLAG_SUPPORT_TIMELINE_GENERIC, except that the filter will
- * have its filter_frame() callback(s) called as usual even when the enable
+ * have its filter_frame() callbackToJava(s) called as usual even when the enable
  * expression is false. The filter will disable filtering within the
- * filter_frame() callback(s) itself, for example executing code depending on
+ * filter_frame() callbackToJava(s) itself, for example executing code depending on
  * the AVFilterContext->is_disabled value.
  */
 #define AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL (1 << 17)
@@ -140,7 +140,7 @@ enum AVMediaType avfilter_pad_get_type(const AVFilterPad *pads, int pad_idx);
 
 /**
  * Filter definition. This defines the pads a filter contains, and all the
- * callback functions used to interact with the filter.
+ * callbackToJava functions used to interact with the filter.
  */
 typedef struct AVFilter {
     /**
@@ -198,10 +198,10 @@ typedef struct AVFilter {
     /**
      * Filter pre-initialization function
      *
-     * This callback will be called immediately after the filter context is
+     * This callbackToJava will be called immediately after the filter context is
      * allocated, to allow allocating and initing sub-objects.
      *
-     * If this callback is not NULL, the uninit callback will be called on
+     * If this callback is not NULL, the uninit callbackToJava will be called on
      * allocation failure.
      *
      * @return 0 on success,
@@ -213,20 +213,20 @@ typedef struct AVFilter {
     /**
      * Filter initialization function.
      *
-     * This callback will be called only once during the filter lifetime, after
+     * This callbackToJava will be called only once during the filter lifetime, after
      * all the options have been set, but before links between filters are
      * established and format negotiation is done.
      *
      * Basic filter initialization should be done here. Filters with dynamic
      * inputs and/or outputs should create those inputs/outputs here based on
      * provided options. No more changes to this filter's inputs/outputs can be
-     * done after this callback.
+     * done after this callbackToJava.
      *
-     * This callback must not assume that the filter links exist or frame
+     * This callbackToJava must not assume that the filter links exist or frame
      * parameters are known.
      *
      * @ref AVFilter.uninit "uninit" is guaranteed to be called even if
-     * initialization fails, so this callback does not have to clean up on
+     * initialization fails, so this callbackToJava does not have to clean up on
      * failure.
      *
      * @return 0 on success, a negative AVERROR on failure
@@ -253,7 +253,7 @@ typedef struct AVFilter {
      * memory held by the filter, release any buffer references, etc. It does
      * not need to deallocate the AVFilterContext.priv memory itself.
      *
-     * This callback may be called even if @ref AVFilter.init "init" was not
+     * This callbackToJava may be called even if @ref AVFilter.init "init" was not
      * called or failed, so it must be prepared to handle such a situation.
      */
     void (*uninit)(AVFilterContext *ctx);
@@ -261,11 +261,11 @@ typedef struct AVFilter {
     /**
      * Query formats supported by the filter on its inputs and outputs.
      *
-     * This callback is called after the filter is initialized (so the inputs
+     * This callbackToJava is called after the filter is initialized (so the inputs
      * and outputs are fixed), shortly before the format negotiation. This
-     * callback may be called more than once.
+     * callbackToJava may be called more than once.
      *
-     * This callback must set AVFilterLink.outcfg.formats on every input link and
+     * This callbackToJava must set AVFilterLink.outcfg.formats on every input link and
      * AVFilterLink.incfg.formats on every output link to a list of pixel/sample
      * formats that the filter supports on that link. For audio links, this
      * filter must also set @ref AVFilterLink.incfg.samplerates "in_samplerates" /
@@ -273,7 +273,7 @@ typedef struct AVFilter {
      * @ref AVFilterLink.incfg.channel_layouts "in_channel_layouts" /
      * @ref AVFilterLink.outcfg.channel_layouts "out_channel_layouts" analogously.
      *
-     * This callback may be NULL for filters with one input, in which case
+     * This callbackToJava may be NULL for filters with one input, in which case
      * libavfilter assumes that it supports all input formats and preserves
      * them on output.
      *
@@ -310,7 +310,7 @@ typedef struct AVFilter {
 
     /**
      * Filter initialization function, alternative to the init()
-     * callback. Args contains the user-supplied parameters, opaque is
+     * callbackToJava. Args contains the user-supplied parameters, opaque is
      * used for providing binary data.
      */
     int (*init_opaque)(AVFilterContext *ctx, void *opaque);
@@ -819,7 +819,7 @@ const AVClass *avfilter_get_class(void);
 typedef struct AVFilterGraphInternal AVFilterGraphInternal;
 
 /**
- * A function pointer passed to the @ref AVFilterGraph.execute callback to be
+ * A function pointer passed to the @ref AVFilterGraph.execute callbackToJava to be
  * executed multiple times, possibly in parallel.
  *
  * @param ctx the filter context the job belongs to
@@ -891,11 +891,11 @@ typedef struct AVFilterGraph {
     void *opaque;
 
     /**
-     * This callback may be set by the caller immediately after allocating the
+     * This callbackToJava may be set by the caller immediately after allocating the
      * graph and before adding any filters to it, to provide a custom
      * multithreading implementation.
      *
-     * If set, filters with slice threading capability will call this callback
+     * If set, filters with slice threading capability will call this callbackToJava
      * to execute multiple jobs in parallel.
      *
      * If this field is left unset, libavfilter will use its internal
