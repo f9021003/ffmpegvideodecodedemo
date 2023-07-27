@@ -46,6 +46,22 @@ jbyteArray vData;
 jbyteArray uvData;
 
 
+static void my_logoutput(void *ptr, int level, const char *fmt, va_list vl)
+{
+    va_list vl2;
+    char *line = static_cast<char *>(malloc(128));
+    static int print_prefix = 1;
+    va_copy(vl2, vl);
+    av_log_format_line(ptr, level, fmt, vl2, line, 128, &print_prefix);
+    va_end(vl2);
+    line[127] = '\0';
+    LOGD("%s", line);
+
+    free(line);
+}
+
+
+
 void* callbackToJava(void* arg) {
     struct thread_para *pars;
     pars=(struct thread_para*)arg;
@@ -98,7 +114,8 @@ void* callbackToJava(void* arg) {
             (env)->DeleteGlobalRef(yData);
         }
         yData = (env)->NewByteArray(pars->yDataSize );
-        if (pars->colorFormat == AV_PIX_FMT_YUV420P) {
+        if (pars->colorFormat == AV_PIX_FMT_YUV420P ||
+                pars->colorFormat == AV_PIX_FMT_YUVJ420P) {
             if (uData != NULL) {
                 (env)->DeleteGlobalRef(uData);
             }
@@ -114,7 +131,7 @@ void* callbackToJava(void* arg) {
             uvData = (env)->NewByteArray(pars->yDataSize/2 );
 
         } else {
-            LOGE(" !!!!! ERROR!!! pix_fmt is not ok! value is %d ", pars->colorFormat);
+            LOGE(" !!!!! ERROR(3)!!! pix_fmt is not ok! value is %d ", pars->colorFormat);
         }
 
 
@@ -134,13 +151,13 @@ void* callbackToJava(void* arg) {
 
 
     (env)->SetByteArrayRegion(yData, 0, pars->yDataSize, (jbyte *)pars->yData);
-    if (pars->colorFormat == AV_PIX_FMT_YUV420P) {
+    if (pars->colorFormat == AV_PIX_FMT_YUV420P || pars->colorFormat == AV_PIX_FMT_YUVJ420P ) {
         (env)->SetByteArrayRegion(uData, 0, pars->uDataSize,(jbyte *)pars->uData);
         (env)->SetByteArrayRegion(vData, 0 , pars->vDataSize, (jbyte *)pars->vData);
     } else if (pars->colorFormat == AV_PIX_FMT_NV12) {
         (env)->SetByteArrayRegion(uvData, 0, pars->uvDataSize, (jbyte *)pars->uvData);
     } else {
-        LOGE(" !!!!! ERROR!!! pix_fmt is not ok! value is %d ", pars->colorFormat);
+        LOGE(" !!!!! ERROR(1)!!! pix_fmt is not ok! value is %d ", pars->colorFormat);
     }
 
 
@@ -165,6 +182,11 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     LOGD("<Tony> JNI_OnLoad");
     //JavaVM是虚拟机在JNI中的表示，等下再其他线程回调java层需要用到
     g_jvm = vm;
+    bool isPrintFFMpegLog = true;
+    if (isPrintFFMpegLog) {
+        av_log_set_level(AV_LOG_INFO);
+        av_log_set_callback(my_logoutput);
+    }
 
 
     return JNI_VERSION_1_4;
@@ -204,6 +226,12 @@ static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
     LOGE("Failed to get HW surface format.\n");
     return AV_PIX_FMT_NONE;
 }
+
+void readyToRender( const int pixFormat,
+                   const AVFrame *pFrame, int totalCounter, int w, int h);
+
+
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstring inputPath,
@@ -250,7 +278,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     //4. 根据视频流信息的codec_id找到对应的解码器
     AVCodec *pCodec = avcodec_find_decoder(pCodecParameters->codec_id);
 
-    bool isUseHWDecode = false;
+    bool isUseHWDecode = true;
 
     char* mediacodec_type_str = "";
     if (isUseHWDecode) {
@@ -356,14 +384,23 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     int totalCounter = 0;
     int frame_cnt = 0;
     clock_t startTime = clock();
-/*
+    bool isFirstFrame = true;
     //7. 开始一帧一帧读取
     while ((readPackCount = av_read_frame(avFormatContext, packet) >= 0)) {
 
 
         if (packet->stream_index == videoIndex) {
             totalCounter++;
-            LOGI("(%d) read fame count is %d, pts=%ld, dts=%ld", totalCounter, readPackCount, packet->pts, packet->dts);
+            bool is_key = (AV_PKT_FLAG_KEY == (packet->flags & AV_PKT_FLAG_KEY));
+            if (isFirstFrame && !is_key) { //確保第一張一定是key frame{
+                LOGD("(%d) Wait for key_frame! pts=%ld, dts=%ld, dataSize=%d", totalCounter, packet->pts, packet->dts, packet->size);
+                continue;
+            }
+            isFirstFrame = false;
+
+
+
+            LOGI("(%d) read fame count is %d, pts=%ld, dts=%ld, dataSize=%d, is_key=%d", totalCounter, readPackCount, packet->pts, packet->dts, packet->size, is_key);
             //8. send AVPacket
             int sendPacket = avcodec_send_packet(pCodecContext, packet);
             //return 0 on success, otherwise negative error code:
@@ -371,6 +408,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
                 //输入的packet未被接收，需要输出一个或多个的frame后才能重新输入当前packet。等待下一帧 所以进行下次循环
                 LOGE("avodec send packet sendPacket == AVERROR(EAGAIN");
                 av_packet_unref(packet);
+
 
             }
             if (sendPacket != 0) {
@@ -381,16 +419,18 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
             // 0:  success, a frame was returned
             int counter = 0;
 
-            while(true) {
-                //usleep(100);
+            //while(true) {
+                //usleep(10);
                 int receiveFrame = avcodec_receive_frame(pCodecContext, pFrame);
 
                 if (receiveFrame != 0) {
                     //如果接收到的fame不等于0，忽略这次receiver否则会出现绿屏帧
                     LOGE("avcodec_receive_frame error %d", receiveFrame);
-                    break;
+                    continue;
                 }
                 counter++;
+                readyToRender(pCodecContext->pix_fmt, pFrame, totalCounter, pCodecParameters->width, pCodecParameters->height);
+
                 LOGE("avcodec_receive_frame success(%d). counter=%d", frame_cnt, counter);
 
 
@@ -406,35 +446,35 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
 //                fwrite(pFrameYUV->data[1], 1, y_size / 4, pYUVFile);//U
 //                fwrite(pFrameYUV->data[2], 1, y_size / 4, pYUVFile);//V
 
-                //输出I、P、B帧信息
-                char pictypeStr[10] = {0};
-                switch (pFrame->pict_type) {
-                    case AV_PICTURE_TYPE_I: {
-                        sprintf(pictypeStr, "I");
-                        break;
-                    }
-                    case AV_PICTURE_TYPE_P: {
-                        sprintf(pictypeStr, "P");
-                        break;
-                    }
-                    case AV_PICTURE_TYPE_B: {
-                        sprintf(pictypeStr, "B");
-                        break;
-                    }
-                }
-                LOGI("Frame index %5d. Tpye %s", frame_cnt, pictypeStr);
+//                //输出I、P、B帧信息
+//                char pictypeStr[10] = {0};
+//                switch (pFrame->pict_type) {
+//                    case AV_PICTURE_TYPE_I: {
+//                        sprintf(pictypeStr, "I");
+//                        break;
+//                    }
+//                    case AV_PICTURE_TYPE_P: {
+//                        sprintf(pictypeStr, "P");
+//                        break;
+//                    }
+//                    case AV_PICTURE_TYPE_B: {
+//                        sprintf(pictypeStr, "B");
+//                        break;
+//                    }
+//                }
+//                LOGI("Frame index %5d. Tpye %s", frame_cnt, pictypeStr);
 
                 frame_cnt++;
 
-            }
+            //}
         }
         //释放packet
         av_packet_unref(packet);
     }
- */
 
 
-/**/
+
+/*
 
 
     int ret =  AVERROR(EAGAIN);
@@ -444,7 +484,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
         totalCounter++;
         ret = avcodec_receive_frame(pCodecContext, pFrame);
 
-        LOGE("avcodec_receive_frame ret=%d. ,%d", ret, totalCounter);
+        //LOGE("avcodec_receive_frame ret=%d. ,%d", ret, totalCounter);
         if (ret == 0) {
             decodeSuccessCounter++;
 
@@ -454,50 +494,22 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
             LOGE("avcodec_receive_frame success(%d). decodeSuccess=%d,decodeFail = %d. pts=%ld, dts=%ld,", frame_cnt, decodeSuccessCounter, decodeFailCounter, pFrame->pkt_pts, pFrame->pkt_dts );
             decodeFailCounter = 0;
 
-/*
-            sws_scale(img_convert_ctx, (const uint8_t *const *) pFrame->data, pFrame->linesize,
-          0, pCodecContext->height,
-          pFrameYUV->data, pFrameYUV->linesize);
-*/
+
+//            sws_scale(img_convert_ctx, (const uint8_t *const *) pFrame->data, pFrame->linesize,
+//          0, pCodecContext->height,
+//          pFrameYUV->data, pFrameYUV->linesize);
+
 
             //11. 分别写入YUV数据
-            int y_size = pCodecParameters->width * pCodecParameters->height;
+//            int y_size = pCodecParameters->width * pCodecParameters->height;
             //YUV420p
 //            fwrite(pFrameYUV->data[0], 1, y_size, pYUVFile);//Y
 //            fwrite(pFrameYUV->data[1], 1, y_size / 4, pYUVFile);//U
 //            fwrite(pFrameYUV->data[2], 1, y_size / 4, pYUVFile);//V
 
 
+            readyToRender(pCodecContext->pix_fmt, pFrame, totalCounter, pCodecParameters->width, pCodecParameters->height);
 
-
-
-            pthread_t t;
-            struct thread_para t_paras;
-            memset( &t_paras, 0 ,sizeof( t_paras ) ) ;
-            t_paras.g_jvm=g_jvm;
-            t_paras.counter = totalCounter;
-            t_paras.yDataSize = y_size;
-            t_paras.yData = pFrame->data[0];
-            if (pCodecContext->pix_fmt == AV_PIX_FMT_YUV420P) {
-                t_paras.uDataSize = y_size/ 4;
-                t_paras.vDataSize = y_size/ 4;
-                t_paras.uData = pFrame->data[1];
-                t_paras.vData = pFrame->data[2];
-            } else if (pCodecContext->pix_fmt == AV_PIX_FMT_NV12) {
-                t_paras.uvDataSize = y_size/ 2;
-                t_paras.uvData = pFrame->data[1];
-            } else {
-                LOGE(" !!!!! ERROR!!! pix_fmt is not ok! value is %d ", pCodecContext->pix_fmt);
-            }
-
-
-
-            t_paras.width = pCodecParameters->width;
-            t_paras.height = pCodecParameters->height;
-            t_paras.colorFormat = pCodecContext->pix_fmt;
-            //pthread_t tid;
-            //pthread_create(&tid, NULL, &callbackToJava,  (void *)&t_paras);
-            callbackToJava((void *)&t_paras);
 
             continue;
         } else if (ret == AVERROR(EAGAIN)) {
@@ -531,6 +543,9 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
 
         }
     }
+*/
+
+
 
 
 
@@ -555,6 +570,39 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     avformat_close_input(&avFormatContext);
     return 0;
 
+}
+
+
+void readyToRender( const int pixFormat,
+                   const AVFrame *pFrame, int totalCounter, int width, int height) {
+    int y_size = width * height;
+    struct thread_para t_paras;
+    memset( &t_paras, 0 ,sizeof( t_paras ) ) ;
+    t_paras.g_jvm=g_jvm;
+    t_paras.counter = totalCounter;
+    t_paras.yDataSize = y_size;
+    t_paras.yData = pFrame->data[0];
+    if (pixFormat == AV_PIX_FMT_YUV420P ||
+            pixFormat == AV_PIX_FMT_YUVJ420P) {
+        t_paras.uDataSize = y_size/ 4;
+        t_paras.vDataSize = y_size/ 4;
+        t_paras.uData = pFrame->data[1];
+        t_paras.vData = pFrame->data[2];
+    } else if (pixFormat == AV_PIX_FMT_NV12) {
+        t_paras.uvDataSize = y_size/ 2;
+        t_paras.uvData = pFrame->data[1];
+    } else {
+        LOGE(" !!!!! ERROR(2)!!! pix_fmt is not ok! value is %d ", pixFormat);
+    }
+
+
+    t_paras.width = width;
+    t_paras.height = height;
+    t_paras.colorFormat = pixFormat;
+    //pthread_t t;
+//pthread_t tid;
+//pthread_create(&tid, NULL, &callbackToJava,  (void *)&t_paras);
+    callbackToJava((void *)&t_paras);
 }
 
 

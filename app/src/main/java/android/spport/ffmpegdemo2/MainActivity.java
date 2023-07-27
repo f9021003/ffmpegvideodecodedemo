@@ -54,10 +54,8 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         long startTime = System.currentTimeMillis();
-//                        byte[] yuvData = new byte[(int)(width*height*1.5)];
-//                        System.arraycopy(imageYData, 0, yuvData, 0, imageYData.length);
-//                        System.arraycopy(imageUData, 0, yuvData, imageYData.length, imageUData.length);
-//                        System.arraycopy(imageVData, 0, yuvData, imageYData.length + imageUData.length, imageVData.length);
+
+/*
 
                         //render with bitmap
                         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -67,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
                         Bitmap image = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
                         imageView.setImageBitmap(image);
 
+*/
 
                         // render with openGL
                         DeviceVideoInfoYUVDataBean data = new DeviceVideoInfoYUVDataBean();
@@ -90,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
 
 
                         glView.mRenderer.setData(data);
-                        Log.d("MainActivity", "time_ =" +  (System.currentTimeMillis() - startTime)+  ", total:"+total +"(" + width +"*"+ height + ") ,imageData=" + imageYUVData.length );
+                       // Log.d("MainActivity", "time_ =" +  (System.currentTimeMillis() - startTime)+  ", total:"+total +"(" + width +"*"+ height + ") ,imageData=" + imageYUVData.length );
                     }
                 });
 
@@ -113,8 +112,8 @@ public class MainActivity extends AppCompatActivity {
         new Thread(new Runnable() {
 
             public void run() {
-//                demo.decodeVideo(rtspUrl2, externalFilesDir+"/output7.yuv");
-                demo.decodeVideo(externalFilesDir+"/Big_Buck_Bunny_1080_10s_1MB_h264.mp4", externalFilesDir+"/output7.yuv");
+                demo.decodeVideo(rtspUrl2, externalFilesDir+"/output7.yuv");
+//                demo.decodeVideo(externalFilesDir+"/Big_Buck_Bunny_1080_10s_1MB_h264.mp4", externalFilesDir+"/output7.yuv");
             }
         }).start();
 
