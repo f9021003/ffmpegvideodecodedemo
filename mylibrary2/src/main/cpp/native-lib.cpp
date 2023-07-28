@@ -474,7 +474,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
                     diff = FFMIN(diff, 100);
                     LOGI("[video] avSync, pts: %" PRId64 "ms, diff: %" PRId64 "ms, pts=%ld, elapsedTimeMs=%ld", mCurTimeStampMs, diff, pFrame->pts, elapsedTimeMs);
                     if (diff > 0) {
-                        //av_usleep(diff * 1000);
+                        av_usleep(diff * 1000);
                     }
                     readyToRender(pCodecContext->pix_fmt, pFrame, 0, pCodecParameters->width, pCodecParameters->height);
 
