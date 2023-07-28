@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
+
 extern "C" {
 //#include "include/libavcodec/avcodec.h"
 //#include "include/libavformat/avformat.h"
@@ -15,6 +16,7 @@ extern "C" {
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 #include "libavcodec/jni.h"
+#include "libavutil/time.h"
 }
 
 jint playPcmBySL(JNIEnv *env,  jstring pcm_path);
@@ -182,7 +184,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     LOGD("<Tony> JNI_OnLoad");
     //JavaVM是虚拟机在JNI中的表示，等下再其他线程回调java层需要用到
     g_jvm = vm;
-    bool isPrintFFMpegLog = true;
+    bool isPrintFFMpegLog = false;
     if (isPrintFFMpegLog) {
         av_log_set_level(AV_LOG_INFO);
         av_log_set_callback(my_logoutput);
@@ -230,8 +232,35 @@ static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
 void readyToRender( const int pixFormat,
                    const AVFrame *pFrame, int totalCounter, int w, int h);
 
+void updateTimestamp(AVFrame *frame);
+int64_t getCurrentTimeMs();
 
 
+int64_t getCurrentTimeMs() {
+    struct timeval time;
+    gettimeofday(&time, nullptr);
+    return time.tv_sec * 1000.0 + time.tv_usec / 1000.0;
+}
+int64_t mStartTimeMsForSync = -1;
+int64_t mCurTimeStampMs = 0;
+AVRational mTimeBase{};
+void updateTimestamp(AVFrame *frame) {
+    if (mStartTimeMsForSync < 0) {
+        LOGE("update video start time");
+        mStartTimeMsForSync = getCurrentTimeMs();
+    }
+
+    int64_t pts = 0;
+    if (frame->pkt_dts != AV_NOPTS_VALUE) {
+        pts = frame->pkt_dts;
+    } else if (frame->pts != AV_NOPTS_VALUE) {
+        pts = frame->pts;
+    }
+    // s -> ms
+    mCurTimeStampMs = (int64_t)(pts * av_q2d(mTimeBase) * 1000);
+
+
+}
 extern "C"
 JNIEXPORT jint JNICALL
 Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstring inputPath,
@@ -278,7 +307,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     //4. 根据视频流信息的codec_id找到对应的解码器
     AVCodec *pCodec = avcodec_find_decoder(pCodecParameters->codec_id);
 
-    bool isUseHWDecode = true;
+    bool isUseHWDecode = false;
 
     char* mediacodec_type_str = "";
     if (isUseHWDecode) {
@@ -318,6 +347,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     }
 
     AVCodecContext *pCodecContext = avFormatContext->streams[videoIndex]->codec;
+    mTimeBase = avFormatContext->streams[videoIndex]->time_base;
     pCodecContext->thread_count = 8;//就这个是关键。
     /*pCodecContext->get_format = get_hw_format;
     // 硬件解码器初始化
@@ -381,92 +411,77 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
 
 
     int readPackCount = 0;
-    int totalCounter = 0;
-    int frame_cnt = 0;
     clock_t startTime = clock();
     bool isFirstFrame = true;
     //7. 开始一帧一帧读取
+
+    bool mNeedResent = false;
     while ((readPackCount = av_read_frame(avFormatContext, packet) >= 0)) {
 
-
         if (packet->stream_index == videoIndex) {
-            totalCounter++;
-            bool is_key = (AV_PKT_FLAG_KEY == (packet->flags & AV_PKT_FLAG_KEY));
-            if (isFirstFrame && !is_key) { //確保第一張一定是key frame{
-                LOGD("(%d) Wait for key_frame! pts=%ld, dts=%ld, dataSize=%d", totalCounter, packet->pts, packet->dts, packet->size);
-                continue;
-            }
-            isFirstFrame = false;
+
+            do {
+
+                bool is_key = (AV_PKT_FLAG_KEY == (packet->flags & AV_PKT_FLAG_KEY));
+                if (isFirstFrame && !is_key) { //確保第一張一定是key frame{
+                    LOGD("Wait for key_frame! pts=%ld, dts=%ld, dataSize=%d", packet->pts, packet->dts, packet->size);
+                    //continue;
+                }
+                isFirstFrame = false;
 
 
 
-            LOGI("(%d) read fame count is %d, pts=%ld, dts=%ld, dataSize=%d, is_key=%d", totalCounter, readPackCount, packet->pts, packet->dts, packet->size, is_key);
-            //8. send AVPacket
-            int sendPacket = avcodec_send_packet(pCodecContext, packet);
-            //return 0 on success, otherwise negative error code:
-            if (sendPacket == AVERROR(EAGAIN)) {
-                //输入的packet未被接收，需要输出一个或多个的frame后才能重新输入当前packet。等待下一帧 所以进行下次循环
-                LOGE("avodec send packet sendPacket == AVERROR(EAGAIN");
-                av_packet_unref(packet);
+                //LOGI("(%d) read fame count is %d, pts=%ld, dts=%ld, dataSize=%d, is_key=%d", totalCounter, readPackCount, packet->pts, packet->dts, packet->size, is_key);
 
+                //8. send AVPacket
+                int sendPacket = avcodec_send_packet(pCodecContext, packet);
+                if (sendPacket != 0) {
 
-            }
-            if (sendPacket != 0) {
-                LOGE("avodec send packet error %d", sendPacket);
-                //continue;
-            }
-            //9. receive frame
-            // 0:  success, a frame was returned
-            int counter = 0;
+                    LOGE("[video] avcodec_send_packet...pts: %" PRId64 ", dts: %" PRId64 ", isKeyFrame: %d, res: %d", packet->pts, packet->dts, is_key, sendPacket);
+                } else {
+                    LOGI("[video] avcodec_send_packet...pts: %" PRId64 ", dts: %" PRId64 ", isKeyFrame: %d, res: %d", packet->pts, packet->dts, is_key, sendPacket);
+                }
 
-            //while(true) {
-                //usleep(10);
+                // avcodec_send_packet的-11表示要先读output，然后pkt需要重发
+                mNeedResent = sendPacket == AVERROR(EAGAIN);
+                //return 0 on success, otherwise negative error code:
+                if (sendPacket == AVERROR(EAGAIN)) {
+                    //输入的packet未被接收，需要输出一个或多个的frame后才能重新输入当前packet。等待下一帧 所以进行下次循环
+                    LOGE("avodec send packet sendPacket == AVERROR(EAGAIN");
+                    //av_packet_unref(packet);
+                } else if (sendPacket != 0) {
+                    LOGE("avodec send packet error %d", sendPacket);
+                    //continue;
+                }
+                //9. receive frame
+                // 0:  success, a frame was returned
+                // avcodec_receive_frame的-11，表示需要发新帧
                 int receiveFrame = avcodec_receive_frame(pCodecContext, pFrame);
-
                 if (receiveFrame != 0) {
                     //如果接收到的fame不等于0，忽略这次receiver否则会出现绿屏帧
-                    LOGE("avcodec_receive_frame error %d", receiveFrame);
-                    continue;
+                    LOGE("[video] avcodec_receive_frame err: %d, resent: %d", receiveFrame, mNeedResent);
+                    //break;
+                } else {
+                    LOGI("[video] avcodec_receive_frame...pts: %" PRId64 ", format: %d, need retry: %d", pFrame->pts, pFrame->format, mNeedResent);
+
+
+                    updateTimestamp(pFrame);
+                    int64_t elapsedTimeMs = getCurrentTimeMs() - mStartTimeMsForSync;
+                    int64_t diff = mCurTimeStampMs - elapsedTimeMs;
+                    diff = FFMIN(diff, 100);
+                    LOGI("[video] avSync, pts: %" PRId64 "ms, diff: %" PRId64 "ms, pts=%ld, elapsedTimeMs=%ld", mCurTimeStampMs, diff, pFrame->pts, elapsedTimeMs);
+                    if (diff > 0) {
+                        av_usleep(diff * 1000);
+                    }
+                    readyToRender(pCodecContext->pix_fmt, pFrame, 0, pCodecParameters->width, pCodecParameters->height);
+
+
                 }
-                counter++;
-                readyToRender(pCodecContext->pix_fmt, pFrame, totalCounter, pCodecParameters->width, pCodecParameters->height);
-
-                LOGE("avcodec_receive_frame success(%d). counter=%d", frame_cnt, counter);
 
 
-//                //10. 格式转换
-//                sws_scale(img_convert_ctx, (const uint8_t *const *) pFrame->data, pFrame->linesize,
-//                          0, pCodecContext->height,
-//                          pFrameYUV->data, pFrameYUV->linesize);
-////
-//                //11. 分别写入YUV数据
-//                int y_size = pCodecParameters->width * pCodecParameters->height;
-//                //YUV420p
-//                fwrite(pFrameYUV->data[0], 1, y_size, pYUVFile);//Y
-//                fwrite(pFrameYUV->data[1], 1, y_size / 4, pYUVFile);//U
-//                fwrite(pFrameYUV->data[2], 1, y_size / 4, pYUVFile);//V
+            } while (mNeedResent);
 
-//                //输出I、P、B帧信息
-//                char pictypeStr[10] = {0};
-//                switch (pFrame->pict_type) {
-//                    case AV_PICTURE_TYPE_I: {
-//                        sprintf(pictypeStr, "I");
-//                        break;
-//                    }
-//                    case AV_PICTURE_TYPE_P: {
-//                        sprintf(pictypeStr, "P");
-//                        break;
-//                    }
-//                    case AV_PICTURE_TYPE_B: {
-//                        sprintf(pictypeStr, "B");
-//                        break;
-//                    }
-//                }
-//                LOGI("Frame index %5d. Tpye %s", frame_cnt, pictypeStr);
 
-                frame_cnt++;
-
-            //}
         }
         //释放packet
         av_packet_unref(packet);
@@ -545,11 +560,6 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     }
 */
 
-
-
-
-
-    LOGI("frame count is %d", frame_cnt);
     clock_t endTime = clock();
 
     //long类型用%ld输出
@@ -845,6 +855,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo2
         return -1;
     }
     pCodecCtx = pFormatCtx->streams[videoindex]->codec;
+
     pCodec = avcodec_find_decoder(pCodecCtx->codec_id);
     if (pCodec == NULL) {
         LOGE("decodeVideo2-Couldn't find Codec.\n");
@@ -979,6 +990,13 @@ Java_android_spport_mylibrary2_Demo_decodeVideo2
 
     return 0;
 }
+
+
+
+
+
+
+
 
 // engine interfaces
 static SLObjectItf engineObject = NULL;

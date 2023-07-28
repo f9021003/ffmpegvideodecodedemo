@@ -31,7 +31,8 @@ public class MainActivity extends AppCompatActivity {
     AudioTrackStreamHelper audioTrackStreamHelper;
 
 
-    private String  rtspUrl = "rtsp://admin:qqq@192.168.3.72:8554/CH001.sdp";
+//    private String  rtspUrl = "rtsp://admin:qqq@192.168.3.72:8554/CH001.sdp";
+    private String  rtspUrl = "rtsp://admin:admin@192.168.3.87:8554/CH001.sdp"; //rtsp://admin:admin@192.168.0.10:8554/CH001.sdp
     private String  rtspUrl2 = "rtsp://admin:Admin123%21@192.168.4.114:554/stream2";
     private GLView glView;
     @Override
@@ -112,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
         new Thread(new Runnable() {
 
             public void run() {
-                demo.decodeVideo(rtspUrl2, externalFilesDir+"/output7.yuv");
+                demo.decodeVideo(rtspUrl, externalFilesDir+"/output7.yuv");
 //                demo.decodeVideo(externalFilesDir+"/Big_Buck_Bunny_1080_10s_1MB_h264.mp4", externalFilesDir+"/output7.yuv");
             }
         }).start();
