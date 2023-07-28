@@ -307,7 +307,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
     //4. 根据视频流信息的codec_id找到对应的解码器
     AVCodec *pCodec = avcodec_find_decoder(pCodecParameters->codec_id);
 
-    bool isUseHWDecode = false;
+    bool isUseHWDecode = true;
 
     char* mediacodec_type_str = "";
     if (isUseHWDecode) {
@@ -409,13 +409,16 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
                                                         AV_PIX_FMT_YUV420P,
                                                         SWS_BICUBIC, NULL, NULL, NULL);
 
-
+/*
+*/
     int readPackCount = 0;
     clock_t startTime = clock();
     bool isFirstFrame = true;
     //7. 开始一帧一帧读取
 
     bool mNeedResent = false;
+
+
     while ((readPackCount = av_read_frame(avFormatContext, packet) >= 0)) {
 
         if (packet->stream_index == videoIndex) {
@@ -471,7 +474,7 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
                     diff = FFMIN(diff, 100);
                     LOGI("[video] avSync, pts: %" PRId64 "ms, diff: %" PRId64 "ms, pts=%ld, elapsedTimeMs=%ld", mCurTimeStampMs, diff, pFrame->pts, elapsedTimeMs);
                     if (diff > 0) {
-                        av_usleep(diff * 1000);
+                        //av_usleep(diff * 1000);
                     }
                     readyToRender(pCodecContext->pix_fmt, pFrame, 0, pCodecParameters->width, pCodecParameters->height);
 
@@ -489,9 +492,13 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
 
 
 
+
 /*
 
-
+    clock_t startTime = clock();
+    int totalCounter = 0;
+    int frame_cnt = 0;
+    int readPackCount = 0;
     int ret =  AVERROR(EAGAIN);
     int decodeSuccessCounter = 0;
     int decodeFailCounter = 0;
@@ -523,6 +530,15 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
 //            fwrite(pFrameYUV->data[2], 1, y_size / 4, pYUVFile);//V
 
 
+            updateTimestamp(pFrame);
+            int64_t elapsedTimeMs = getCurrentTimeMs() - mStartTimeMsForSync;
+            int64_t diff = mCurTimeStampMs - elapsedTimeMs;
+            diff = FFMIN(diff, 100);
+            LOGI("[video] avSync, pts: %" PRId64 "ms, diff: %" PRId64 "ms, pts=%ld, elapsedTimeMs=%ld", mCurTimeStampMs, diff, pFrame->pts, elapsedTimeMs);
+            if (diff > 0) {
+                av_usleep(diff * 1000);
+            }
+
             readyToRender(pCodecContext->pix_fmt, pFrame, totalCounter, pCodecParameters->width, pCodecParameters->height);
 
 
@@ -530,7 +546,6 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
         } else if (ret == AVERROR(EAGAIN)) {
 
             ret = av_read_frame(avFormatContext, packet);
-            packet->pts = AV_NOPTS_VALUE;
             if (ret == AVERROR_EOF) {
                 LOGE("====AVERROR_EOF=====");
                 break;
@@ -558,13 +573,13 @@ Java_android_spport_mylibrary2_Demo_decodeVideo(JNIEnv *env, jobject thiz, jstri
 
         }
     }
-*/
+
 
     clock_t endTime = clock();
 
     //long类型用%ld输出
     LOGI("decode video use Time %ld", (endTime - startTime));
-
+*/
 
     //12.释放相关资源
 
